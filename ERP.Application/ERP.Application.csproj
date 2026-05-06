@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ERP.Domain\ERP.Domain.csproj" />
+    <ProjectReference Include="..\ERP.SharedKernel\ERP.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Common\Interfaces\" />
+    <Folder Include="Common\Behaviors\" />
+    <Folder Include="Sale\Commands\" />
+    <Folder Include="Sale\DTOs\" />
+    <Folder Include="Sale\Queries\" />
+  </ItemGroup>
+
+</Project>
