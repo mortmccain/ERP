@@ -11,7 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Sales\Events\" />
+    <Folder Include="Customers\Enums\" />
+    <Folder Include="Customers\Services\" />
     <Folder Include="Sales\Services\" />
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-﻿using ERP.SharedKernel.Primatives;
+﻿using ERP.SharedKernel.Primitives;
 
 namespace ERP.Domain.Sales.ValueObjects;
 
@@ -11,32 +11,32 @@ public class SaleNumber :BaseValueObject
 
     private SaleNumber(string prefix, int year, int sequence)
     {
-        if (string.IsNullOrWhiteSpace(prefix))
-            throw new ArgumentException("Prefix is required");
-        if (year < 2000 || year > 2100)
-            throw new ArgumentException("Invalid year");
-        if (sequence < 1 || sequence > 9999)
-            throw new ArgumentException("Sequence must be between 1 and 9999");
+        if (string.IsNullOrWhiteSpace(prefix)) throw new ArgumentException("Prefix is required");
+
+        if (year < 2000 || year > 2100)throw new ArgumentException("Invalid year");
+
+        // needs changing if we have more sales than 9999 in a year
+        if (sequence < 1 || sequence > 9999)throw new ArgumentException("Sequence must be between 1 and 9999");
 
         Prefix = prefix.ToUpper();
         Year = year;
         Sequence = sequence;
+        // D4 make it shot small numbers like : 0042
         Value = $"{Prefix}-{Year}-{Sequence:D4}";
     }
 
     public static SaleNumber Next(SaleNumber previous, string prefix)
     {
-        if (previous.Year != DateTime.Now.Year)
-            return new SaleNumber(prefix, DateTime.Now.Year, 1);
+        if (previous.Year != DateTime.Now.Year) return new SaleNumber(prefix, DateTime.Now.Year, 1);
+
         return new SaleNumber(prefix, previous.Year, previous.Sequence + 1);
     }
 
-    public override string ToString()
-    {
-        return $"{Prefix}-{Year}-{Sequence:D4}";
-    }
+    public override string ToString() => Value;
 
     public bool IsInternationalSale() => Prefix == "INT";
+
+    public bool IsDomesticSale() => Prefix == "DOM";
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

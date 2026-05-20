@@ -1,5 +1,5 @@
 ﻿using MediatR;
-//install MediatorR.Contracts
+
 namespace ERP.SharedKernel.Common
 {
     /// <summary>

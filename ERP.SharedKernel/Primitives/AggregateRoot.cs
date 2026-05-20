@@ -1,6 +1,6 @@
 ﻿using ERP.SharedKernel.Common;
 
-namespace ERP.SharedKernel.Primatives;
+namespace ERP.SharedKernel.Primitives;
 
 /// <summary>
 /// Base class for Aggregate Roots. Manages a collection of Domain Events

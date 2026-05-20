@@ -1,4 +1,4 @@
-﻿namespace ERP.SharedKernel.Primatives;
+﻿namespace ERP.SharedKernel.Primitives;
 
 public abstract class BaseEntity
 {
@@ -8,7 +8,7 @@ public abstract class BaseEntity
     {
         Id = Guid.NewGuid();
     }
-
+    // for aggregate root
     protected BaseEntity(Guid id)
     {
         Id = id;

@@ -24,8 +24,11 @@ public class Result
     // something is wrong, here's why
     public static Result Success() => new(true, string.Empty);
     public static Result Failure(string error) => new(false, error);
+
     // something is wrong, here's why + some data
+    // might want to delete the shortcut functions
     public static Result<T> Success<T>(T value) => Result<T>.Success(value);
+    // calls the method on the child class. this is a code smell but it is done for a nicer looking API
     public static Result<T> Failure<T>(string error) => Result<T>.Failure(error);
 }
 
@@ -42,6 +45,7 @@ public class Result<T> : Result
         Value = value;
     }
 
+    // might want to delete the shortcut functions
     public static Result<T> Success(T value) => new(value, true, string.Empty);
     public static new Result<T> Failure(string error) => new(default!, false, error);
     //            ^^^

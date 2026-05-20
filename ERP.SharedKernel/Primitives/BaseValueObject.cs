@@ -1,5 +1,4 @@
-﻿
-namespace ERP.SharedKernel.Primatives;
+﻿namespace ERP.SharedKernel.Primitives;
 
 public abstract class BaseValueObject
 {

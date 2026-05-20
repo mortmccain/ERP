@@ -1,10 +1,14 @@
 using ERP.WebUI.Components;
+using ERP.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+//builder.Services.AddScoped<ISaleNumberGenerator,SaleNumberGenerator>;
+
+builder.Services.AddApplication();
 
 var app = builder.Build();
 
