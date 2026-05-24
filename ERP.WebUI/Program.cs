@@ -1,5 +1,6 @@
 using ERP.WebUI.Components;
 using ERP.Application;
+using ERP.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ builder.Services.AddRazorComponents()
 //builder.Services.AddScoped<ISaleNumberGenerator,SaleNumberGenerator>;
 
 builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 

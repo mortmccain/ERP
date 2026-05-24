@@ -1,6 +1,5 @@
 ﻿using ERP.Domain.Customers.Entities;
 using ERP.Domain.Sales.Entities;
-using ERP.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;

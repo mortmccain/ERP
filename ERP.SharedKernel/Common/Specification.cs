@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Text;
+﻿using System.Linq.Expressions;
 
 namespace ERP.SharedKernel.Common;
 
@@ -17,6 +14,11 @@ public abstract class Specification<T>
 
     public bool IsSatisfiedBy(T entity)
     {
+        /*
+         ToExpression() → Gets the recipe.
+         .Compile() → Turns the recipe into real executable code (turns paper into cooked food).
+         .Invoke(entity) → Runs that code on the object you passed in.
+         */
         return ToExpression().Compile().Invoke(entity);
     }
 
@@ -60,9 +62,11 @@ internal class AndSpecification<T> : Specification<T>
         var leftExpr = _left.ToExpression();
         var rightExpr = _right.ToExpression();
         var parameter = Expression.Parameter(typeof(T));
-        var combined = Expression.AndAlso(
+        var combined = Expression.AndAlso
+            (
             Expression.Invoke(leftExpr, parameter),
-            Expression.Invoke(rightExpr, parameter));
+            Expression.Invoke(rightExpr, parameter)
+            );
         return Expression.Lambda<Func<T, bool>>(combined, parameter);
     }
 }
@@ -83,9 +87,11 @@ internal class OrSpecification<T> : Specification<T>
         var leftExpr = _left.ToExpression();
         var rightExpr = _right.ToExpression();
         var parameter = Expression.Parameter(typeof(T));
-        var combined = Expression.OrElse(
+        var combined = Expression.OrElse
+            (
             Expression.Invoke(leftExpr, parameter),
-            Expression.Invoke(rightExpr, parameter));
+            Expression.Invoke(rightExpr, parameter)
+            );
         return Expression.Lambda<Func<T, bool>>(combined, parameter);
     }
 }

@@ -67,7 +67,7 @@ public sealed class Sale : AggregateRoot
     //public string? TaxType { get; private set; } = string.Empty;
 
     // --- timestamps ---
-    public DateTime CreatedAt { get; }
+    public DateTime CreatedAtUtc { get; }
 
     // these aren't set as the object gets created so init doesn't work for them.
     // anything that doesn't get initialized in the constructor 
@@ -139,7 +139,7 @@ public sealed class Sale : AggregateRoot
         TaxableAmount = Money.Zero("IRI");
         Tax = Money.Zero("IRI");
         Total = Money.Zero("IRI");
-        CreatedAt = DateTime.UtcNow;
+        CreatedAtUtc = DateTime.UtcNow;
 
     }
 
@@ -184,7 +184,7 @@ public sealed class Sale : AggregateRoot
             sale.SaleNumber,
             sale.CustomerId,
             sale.CustomerName,
-            sale.CreatedAt,
+            sale.CreatedAtUtc,
             sale.CreatedByUserId,
             sale.CreatedByName
             )

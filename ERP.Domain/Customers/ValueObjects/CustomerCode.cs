@@ -1,4 +1,5 @@
-﻿using ERP.SharedKernel.Primitives;
+﻿using ERP.Domain.Sales.ValueObjects;
+using ERP.SharedKernel.Primitives;
 
 namespace ERP.Domain.Customers.ValueObjects;
 
@@ -24,12 +25,23 @@ public sealed class CustomerCode : BaseValueObject
         // D4 make it shot small numbers like : 0042
         Value = $"{Prefix}-{Year}-{Sequence:D4}";
     }
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    private CustomerCode() { }
+#pragma warning restore CS8618
+    public static CustomerCode First(string prefix)
+    {
+        return new CustomerCode(prefix, DateTime.Now.Year, 1);
+    }
 
     public static CustomerCode Next(CustomerCode previous, string prefix)
     {
-        if (previous.Year != DateTime.Now.Year) return new CustomerCode(prefix, DateTime.Now.Year, 1);
-
+        if (previous.Year != DateTime.Now.Year) return First(prefix);
         return new CustomerCode(prefix, previous.Year, previous.Sequence + 1);
+    }
+
+    public static CustomerCode FromParts(string prefix, int year, int sequence)
+    {
+        return new CustomerCode(prefix, year, sequence);
     }
 
     public override string ToString() => Value;

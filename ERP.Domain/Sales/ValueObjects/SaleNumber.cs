@@ -25,11 +25,24 @@ public class SaleNumber :BaseValueObject
         Value = $"{Prefix}-{Year}-{Sequence:D4}";
     }
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    private SaleNumber() { }
+#pragma warning restore CS8618
+
+    public static SaleNumber First(string prefix)
+    {
+        return new SaleNumber(prefix, DateTime.Now.Year, 1);
+    }
+
     public static SaleNumber Next(SaleNumber previous, string prefix)
     {
-        if (previous.Year != DateTime.Now.Year) return new SaleNumber(prefix, DateTime.Now.Year, 1);
-
+        if (previous.Year != DateTime.Now.Year) return First(prefix);
         return new SaleNumber(prefix, previous.Year, previous.Sequence + 1);
+    }
+
+    public static SaleNumber FromParts(string prefix, int year, int sequence)
+    {
+        return new SaleNumber(prefix, year, sequence);
     }
 
     public override string ToString() => Value;

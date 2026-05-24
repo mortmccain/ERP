@@ -28,8 +28,8 @@ public sealed class Customer : AggregateRoot
     public Address BillingAddress { get; private set; }
     public Address ShippingAddress { get; private set; }
     public bool IsActive { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public DateTime? LastOrderDate { get; private set; }
+    public DateTime CreatedAtUtc { get; private set; }
+    public DateTime? LastOrderDateUtc { get; private set; }
 
 
 
@@ -66,7 +66,7 @@ public sealed class Customer : AggregateRoot
         BillingAddress = billingAddress;
         ShippingAddress = shippingAddress;
         IsActive = true;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAtUtc = DateTime.UtcNow;
     }
 
 
@@ -108,7 +108,7 @@ public sealed class Customer : AggregateRoot
                 customer.Phone,
                 customer.BillingAddress,
                 customer.ShippingAddress,
-                customer.CreatedAt
+                customer.CreatedAtUtc
             )
             );
 
@@ -168,7 +168,7 @@ public sealed class Customer : AggregateRoot
     {
         if (orderDate > DateTime.UtcNow) throw new DomainException("Order date cannot be in the future.");
 
-        LastOrderDate = orderDate;
+        LastOrderDateUtc = orderDate;
     }
 
     /// <summary>

@@ -26,7 +26,7 @@ public sealed class SaleLineItemConfiguration : IEntityTypeConfiguration<SaleLin
         builder.OwnsOne(li => li.UnitPrice, money =>
         {
             money.Property(m => m.Amount).HasColumnName("UnitPrice").HasColumnType("decimal(18,2)").IsRequired().ValueGeneratedNever();
-            money.Property(m => m.Currency).HasColumnName("UnitPriceCurrency").HasColumnType("decimal(18,2)").IsRequired().ValueGeneratedNever();
+            money.Property(m => m.Currency).HasColumnName("UnitPriceCurrency").HasMaxLength(3).IsUnicode(false).IsRequired().ValueGeneratedNever();
         });
         builder.Property(li => li.LineNumber).IsRequired().ValueGeneratedNever();
 
