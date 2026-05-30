@@ -1,5 +1,6 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.Domain.Customers.Entities;
+using ERP.SharedKernel.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Infrastructure.Persistence.Repositories;
@@ -20,6 +21,15 @@ public sealed class CustomerRepository : ICustomerRepository
     {
         return await _dbContext.Customers
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<List<Customer>> GetBySpecificationAsync(
+    Specification<Customer> specification,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Customers
+            .Where(specification.ToExpression())
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)

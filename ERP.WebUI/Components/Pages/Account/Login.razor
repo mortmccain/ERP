@@ -1,0 +1,88 @@
+﻿@page "/Account/Login"
+@layout LoginLayout
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser<Guid>> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Login - ERP</PageTitle>
+
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--rz-ground-3);">
+    <RadzenCard Style="width: 400px; max-width: 90vw;">
+        <RadzenStack AlignItems="AlignItems.Center" Gap="1.5rem">
+            <RadzenIcon Icon="inventory_2" Style="font-size: 48px; color: var(--rz-primary);" />
+            <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2">ERP System</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" ThemeColor="TextColor.Secondary">Sign in to your account</RadzenText>
+        </RadzenStack>
+
+        <form method="post" @formname="login" @onsubmit="HandleLogin" class="mt-4">
+            <AntiforgeryToken />
+            <RadzenStack Gap="1rem">
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Text="@errorMessage" AllowClose="true" />
+                }
+
+                <div>
+                    <RadzenLabel Text="Username" />
+                    <input type="text" name="Username" value="@Username"
+                           class="rz-textbox" style="width: 100%;" autocomplete="username" />
+                </div>
+
+                <div>
+                    <RadzenLabel Text="Password" />
+                    <input type="password" name="Password"
+                           class="rz-textbox" style="width: 100%;" autocomplete="current-password" />
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" name="RememberMe" value="true"
+                           style="width: 16px; height: 16px; cursor: pointer;" />
+                    <RadzenText TextStyle="TextStyle.Body2">Remember me</RadzenText>
+                </div>
+
+                <RadzenButton Text="Sign In" ButtonType="ButtonType.Submit"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Style="width: 100%;" Size="ButtonSize.Medium" />
+            </RadzenStack>
+        </form>
+    </RadzenCard>
+</div>
+
+@code {
+    [SupplyParameterFromForm] private string Username { get; set; } = string.Empty;
+    [SupplyParameterFromForm] private string Password { get; set; } = string.Empty;
+    [SupplyParameterFromForm] private bool RememberMe { get; set; }
+
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            errorMessage = "Username and password are required.";
+            return;
+        }
+
+        var result = await SignInManager.PasswordSignInAsync(
+            Username.Trim(),
+            Password,
+            RememberMe,
+            lockoutOnFailure: true);
+
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else if (result.IsLockedOut)
+        {
+            errorMessage = "Your account has been locked out. Please try again later.";
+        }
+        else
+        {
+            errorMessage = "Invalid username or password.";
+        }
+    }
+}

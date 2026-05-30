@@ -1,0 +1,36 @@
+﻿@page "/customers"
+@attribute [Authorize(Roles = "Admin,Manager,Employee")]
+@using ERP.Application.Common.Interfaces
+@using ERP.Domain.Customers.Entities
+@using Microsoft.AspNetCore.Authorization
+@inject ICustomerRepository CustomerRepository
+
+<PageTitle>Customers - ERP</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" class="mb-4">Customers</RadzenText>
+
+<RadzenDataGrid Data="@customers" AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="20"
+                Style="height: calc(100vh - 180px);">
+    <Columns>
+        <RadzenDataGridColumn TItem="Customer" Property="CustomerCode" Title="Code" Sortable="true" />
+        <RadzenDataGridColumn TItem="Customer" Property="Name" Title="Name" Sortable="true" />
+        <RadzenDataGridColumn TItem="Customer" Property="Email" Title="Email" Sortable="true" />
+        <RadzenDataGridColumn TItem="Customer" Property="Phone" Title="Phone" Sortable="true" />
+        <RadzenDataGridColumn TItem="Customer" Title="Active" Sortable="true">
+            <Template Context="customer">
+                @(customer.IsActive ? "Yes" : "No")
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private List<Customer> customers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        customers = await CustomerRepository.GetBySpecificationAsync(
+            ERP.SharedKernel.Common.Specification<Customer>.Empty,
+            CancellationToken.None);
+    }
+}

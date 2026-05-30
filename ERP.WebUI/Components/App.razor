@@ -1,23 +1,65 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using ERP.WebUI.Components
 
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["ERP.WebUI.styles.css"]" />
-    <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <link href="_content/Radzen.Blazor/css/standard-dark.css" rel="stylesheet" />
+    <HeadOutlet @rendermode="@RenderModeForPage" />
 </head>
-
 <body>
-    <Routes />
-    <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <Routes @rendermode="@RenderModeForPage" />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
 </body>
-
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? RenderModeForPage =>
+        HttpContext.Request.Path.StartsWithSegments("/Account")
+            ? null
+            : InteractiveServer;
+}
+
+@* @using Microsoft.AspNetCore.Components.Authorization
+@using ERP.WebUI.Components
+
+<link href="_content/Radzen.Blazor/css/default.css" rel="stylesheet" />
+
+<CascadingAuthenticationState> <!-- Broadcast the logged-in user's identity to every component inside -->
+    <Router AppAssembly="typeof(Program).Assembly"> <!-- Look at the URL. Find the matching page in this project -->
+        <Found Context="routeData"> <!-- URL matched a page. Here's the route info -->
+
+            <!-- Check if user is allowed to see this page. If the page doesn't specify a layout, use MainLayout -->
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)"> 
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+
+                <Authorizing>
+                    <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </Authorizing>
+
+            </AuthorizeRouteView>
+        </Found>
+
+        <NotFound>
+            <PageTitle>Not Found</PageTitle>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <div class="alert alert-warning m-4">
+                    <h4>Page Not Found</h4>
+                    <p>The page you requested does not exist.</p>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState> *@

@@ -1,0 +1,48 @@
+﻿@page "/sales"
+@attribute [Authorize]
+@using ERP.Application.Sales.DTOs
+@using ERP.Application.Sales.Queries.GetSalesPaginated
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@inject ISender Mediator
+
+<PageTitle>Sales - ERP</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" class="mb-4">Sales</RadzenText>
+
+<RadzenDataGrid @ref="grid" Data="@sales" Count="@totalCount" LoadData="@LoadData"
+                AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="20"
+                style="height: calc(100vh - 200px);">
+    <Columns>
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="SaleNumber" Title="Sale #" Sortable="true" />
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CustomerName" Title="Customer" Sortable="true" />
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="Status" Title="Status" Sortable="true" />
+        <RadzenDataGridColumn TItem="SaleListItemDto" Title="Total" Sortable="true">
+            <Template Context="sale">
+                @sale.Total.Amount.ToString("N2") @sale.Total.Currency
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CreatedAtUtc" Title="Date" Sortable="true"
+                              FormatString="{0:yyyy-MM-dd HH:mm}" />
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private RadzenDataGrid<SaleListItemDto> grid = default!;
+    private List<SaleListItemDto> sales = new();
+    private int totalCount;
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        var query = new GetSalesPaginatedQuery
+        {
+            PageNumber = (args.Skip ?? 0) / (args.Top ?? 20) + 1,
+            PageSize = args.Top ?? 20,
+            SearchTerm = args.Filters?.FirstOrDefault()?.FilterValue?.ToString()
+        };
+
+        var result = await Mediator.Send(query);
+        sales = result.Items.ToList();
+        totalCount = result.TotalCount;
+    }
+}

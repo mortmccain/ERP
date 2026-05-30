@@ -72,8 +72,9 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         // ------------------------------------------------------------------
         var sale = Sale.Create
             (
+            // shouldn't we take some of these from the database for security reasons? _currentUserService.UserId 
             command.CustomerId,
-            customer.Name,
+            customer.Name,      
             customer.ShippingAddress,
             saleNumber,
             command.CreatedByUserId,

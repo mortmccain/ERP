@@ -1,23 +1,76 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                     AlignItems="AlignItems.Center" class="w-100 px-3">
+            <RadzenText TextStyle="TextStyle.H5" TagName="TagName.Span">ERP System</RadzenText>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                <RadzenBadge Text="@roleBadgeText" BadgeStyle="@roleBadgeStyle" />
+                <RadzenText TextStyle="TextStyle.Body2">@displayName</RadzenText>
+                <RadzenButton Text="Logout" ButtonStyle="ButtonStyle.Secondary"
+                              Size="ButtonSize.Small" Click="Logout" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenHeader>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <RadzenSidebar>
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" />
+            <RadzenPanelMenuItem Text="Sales" Icon="shopping_cart" Path="/sales" />
+            <RadzenPanelMenuItem Text="New Sale" Icon="add_shopping_cart" Path="/sales/create" />
+            <RadzenPanelMenuItem Text="Customers" Icon="people" Path="/customers" />
+            <AuthorizeView Roles="Admin,Manager">
+                <RadzenPanelMenuItem Text="User Management" Icon="manage_accounts" Path="/admin/users" />
+            </AuthorizeView>
+        </RadzenPanelMenu>
+    </RadzenSidebar>
 
-        <article class="content px-4">
+    <RadzenBody>
+        <RadzenContent Container="ContainerType.Fluid">
             @Body
-        </article>
-    </main>
-</div>
+        </RadzenContent>
+    </RadzenBody>
+</RadzenLayout>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@* Must exist in the layout for DialogService.Confirm() to render its popup *@
+<RadzenDialog />
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private string displayName = string.Empty;
+    private string roleBadgeText = string.Empty;
+    private BadgeStyle roleBadgeStyle = BadgeStyle.Light;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        displayName = user.FindFirst("FullName")?.Value
+                      ?? user.Identity?.Name
+                      ?? "Unknown";
+
+        if (user.IsInRole("Admin"))
+        {
+            roleBadgeText = "Admin";
+            roleBadgeStyle = BadgeStyle.Danger;
+        }
+        else if (user.IsInRole("Manager"))
+        {
+            roleBadgeText = "Manager";
+            roleBadgeStyle = BadgeStyle.Warning;
+        }
+        else
+        {
+            roleBadgeText = "Employee";
+            roleBadgeStyle = BadgeStyle.Info;
+        }
+    }
+
+    private void Logout() => Navigation.NavigateTo("/Account/Logout", forceLoad: true);
+}

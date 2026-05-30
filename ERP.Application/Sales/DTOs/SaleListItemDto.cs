@@ -14,5 +14,5 @@ public sealed class SaleListItemDto
     public string CustomerName { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public MoneyDto Total { get; init; } = null!;
-    public DateTime CreatedAt { get; init; }
+    public DateTime CreatedAtUtc { get; init; }
 }

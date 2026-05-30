@@ -1,0 +1,280 @@
+﻿@page "/admin/users"
+@attribute [Authorize(Roles = "Admin,Manager")]
+
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+@inject UserManager<IdentityUser<Guid>> UserManager
+@inject Radzen.NotificationService NotificationService
+@inject Radzen.DialogService DialogService
+
+<PageTitle>User Management - ERP</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" class="mb-4">
+    User Management
+</RadzenText>
+
+<div class="row">
+
+    <!-- CREATE USER -->
+    <div class="col-md-5">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6" class="mb-3">
+                Create New User
+            </RadzenText>
+
+            <RadzenTemplateForm TItem="CreateUserModel" Data="@newUser" Submit="CreateUser">
+                <RadzenStack Gap="1rem">
+
+                    @if (formErrors.Count > 0)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false">
+                            <ul>
+                                @foreach (var e in formErrors)
+                                {
+                                    <li>@e</li>
+                                }
+                            </ul>
+                        </RadzenAlert>
+                    }
+
+                    <RadzenTextBox @bind-Value="newUser.Username" Placeholder="Username" />
+                    <RadzenTextBox @bind-Value="newUser.Email" Placeholder="Email" />
+                    <RadzenTextBox @bind-Value="newUser.FullName" Placeholder="Full Name" />
+                    <RadzenPassword @bind-Value="newUser.Password" Placeholder="Password" />
+
+                    @if (isAdmin)
+                    {
+                        <RadzenDropDown @bind-Value="newUser.Role"
+                                        Data="@roles"
+                                        Placeholder="Select Role" />
+                    }
+                    else
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Info">
+                            Managers can only create Employee accounts.
+                        </RadzenAlert>
+                    }
+
+                    <RadzenButton Text="Create User"
+                                  ButtonType="ButtonType.Submit"
+                                  ButtonStyle="ButtonStyle.Primary" />
+                </RadzenStack>
+            </RadzenTemplateForm>
+        </RadzenCard>
+    </div>
+
+    <!-- USER LIST -->
+    <div class="col-md-7">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6" class="mb-3">
+                Users
+            </RadzenText>
+
+            <RadzenDataGrid Data="@users" AllowPaging="true" PageSize="10">
+
+                <Columns>
+                    <RadzenDataGridColumn Property="UserName" Title="Username" />
+                    <RadzenDataGridColumn Property="Email" Title="Email" />
+
+                    <RadzenDataGridColumn Title="Roles">
+                        <Template Context="u">
+                            @string.Join(", ", userRoles.GetValueOrDefault(u.Id, new()))
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Title="">
+                        <Template Context="u">
+
+                            <RadzenButton Icon="delete_forever"
+                                          ButtonStyle="ButtonStyle.Danger"
+                                          Size="ButtonSize.Small"
+                                          Disabled="@(u.Id == currentUserId)"
+                                          Click="@(() => ConfirmDelete(u))" />
+
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                </Columns>
+
+            </RadzenDataGrid>
+        </RadzenCard>
+    </div>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; }
+
+    private List<IdentityUser<Guid>> users = new();
+    private Dictionary<Guid, List<string>> userRoles = new();
+
+    private CreateUserModel newUser = new();
+    private List<string> roles = new();
+    private List<string> formErrors = new();
+
+    private Guid currentUserId;
+    private bool isAdmin;
+    private bool isManager;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateTask;
+        var user = auth.User;
+
+        isAdmin = user.IsInRole("Admin");
+        isManager = user.IsInRole("Manager");
+
+        if (Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id))
+            currentUserId = id;
+
+        roles = isAdmin
+            ? new() { "Admin", "Manager", "Employee", "ReadOnly" }
+            : new() { "Employee" };
+
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        userRoles.Clear();
+
+        var all = await UserManager.Users.ToListAsync();
+
+        users = isAdmin
+            ? all
+            : await FilterEmployeesOnly(all);
+
+        foreach (var u in users)
+        {
+            userRoles[u.Id] = (await UserManager.GetRolesAsync(u)).ToList();
+        }
+    }
+
+    private async Task<List<IdentityUser<Guid>>> FilterEmployeesOnly(
+        List<IdentityUser<Guid>> all)
+    {
+        var result = new List<IdentityUser<Guid>>();
+
+        foreach (var u in all)
+        {
+            var r = await UserManager.GetRolesAsync(u);
+            if (r.Contains("Employee"))
+                result.Add(u);
+        }
+
+        return result;
+    }
+
+    private async Task CreateUser()
+    {
+        formErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(newUser.Username))
+            formErrors.Add("Username required");
+        if (string.IsNullOrWhiteSpace(newUser.Password))
+            formErrors.Add("Password required");
+
+        if (formErrors.Count > 0)
+            return;
+
+        var user = new IdentityUser<Guid>
+        {
+            UserName = newUser.Username,
+            Email = newUser.Email
+        };
+
+        var createResult = await UserManager.CreateAsync(user, newUser.Password);
+
+        if (!createResult.Succeeded)
+        {
+            formErrors = createResult.Errors.Select(e => e.Description).ToList();
+            return;
+        }
+
+        // ROLE ENFORCEMENT (IMPORTANT)
+        var roleToAssign = isManager ? "Employee" : newUser.Role;
+
+        if (string.IsNullOrWhiteSpace(roleToAssign))
+            roleToAssign = "Employee";
+
+        await UserManager.AddToRoleAsync(user, roleToAssign);
+
+        if (!string.IsNullOrWhiteSpace(newUser.FullName))
+        {
+            await UserManager.AddClaimAsync(user,
+                new Claim("FullName", newUser.FullName));
+        }
+
+        NotificationService.Notify(new()
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = "Created",
+            Detail = "User created successfully"
+        });
+
+        newUser = new();
+        await LoadUsers();
+    }
+
+    private async Task ConfirmDelete(IdentityUser<Guid> user)
+    {
+        if (user.Id == currentUserId)
+        {
+            NotificationService.Notify(new()
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Blocked",
+                Detail = "Cannot delete self"
+            });
+            return;
+        }
+
+        var roles = await UserManager.GetRolesAsync(user);
+
+        if (isManager && !roles.Contains("Employee"))
+        {
+            NotificationService.Notify(new()
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Blocked",
+                Detail = "Managers can only delete employees"
+            });
+            return;
+        }
+
+        var confirmed = await DialogService.Confirm(
+            $"Are you sure you want to permanently delete '{user.UserName}'? This action cannot be undone.",
+            "Delete User",
+            new ConfirmOptions
+            {
+                OkButtonText = "Delete",
+                CancelButtonText = "Cancel",
+                CloseDialogOnEsc = true
+            });
+            await DeleteUser(user);
+    }
+
+    private async Task DeleteUser(IdentityUser<Guid> user)
+    {
+        var result = await UserManager.DeleteAsync(user);
+
+        if (result.Succeeded)
+        {
+            await LoadUsers();
+        }
+    }
+
+    private class CreateUserModel
+    {
+        public string Username { get; set; }
+        public string Email { get; set; }
+        public string FullName { get; set; }
+        public string Password { get; set; }
+        public string Role { get; set; }
+    }
+}

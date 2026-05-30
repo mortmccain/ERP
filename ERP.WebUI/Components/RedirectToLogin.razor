@@ -1,0 +1,46 @@
+﻿@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (string.IsNullOrEmpty(returnUrl) || returnUrl == "/")
+            returnUrl = "/";
+
+        Navigation.NavigateTo($"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}",
+                             forceLoad: true);
+    }
+}
+
+
+<!--
+Why forceLoad Is Critical for Login
+Let's trace a login flow WITHOUT forceLoad:
+
+1. User is on /Login page
+2. User enters username + password, clicks "Log in"
+3. Blazor sends the form data over SignalR to server
+4. Server validates credentials: "Correct. Here's an authentication cookie."
+5. Server sends the cookie back in the SignalR response
+6. Browser receives the cookie and stores it
+7. Blazor code: Navigation.NavigateTo("/"); // Default navigation
+8. Blazor updates the virtual DOM to show the home page
+9. BUT: The SignalR circuit was created BEFORE the cookie existed
+10. The circuit's authentication state still says: "Anonymous user"
+11. Home page renders as if user is NOT logged in
+12. User: "I just logged in! Why can't I see anything?!"
+
+Now WITH forceLoad:
+
+1. User logs in (same steps 1-6)
+2. Server sends cookie
+3. Blazor code: Navigation.NavigateTo("/", forceLoad: true);
+4. Browser does a REAL HTTP GET request to /
+5. Server receives request WITH the new cookie
+6. Server: "I see the authentication cookie. User is John. Show home page."
+7. Server sends full HTML
+8. SignalR circuit is created fresh with the cookie already present
+9. Authentication state: "John Doe, authenticated"
+10. Home page renders correctly
+11. User: "I'm logged in. Everything works."
+-->

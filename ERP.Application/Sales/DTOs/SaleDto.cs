@@ -17,6 +17,6 @@ public sealed class SaleDto
     public decimal? DiscountPercentage { get; init; }
     public string? DiscountReason { get; init; }
     public decimal? TaxRate { get; init; }
-    public DateTime CreatedAt { get; init; }
+    public DateTime CreatedAtUtc { get; init; }
     public List<SaleLineItemDto> LineItems { get; init; } = new();
 }
