@@ -1,36 +1,321 @@
 ﻿@page "/customers"
-@attribute [Authorize(Roles = "Admin,Manager,Employee")]
+@attribute [Authorize]
 @using ERP.Application.Common.Interfaces
+@using ERP.Application.Customers.Commands.CreateCustomer
 @using ERP.Domain.Customers.Entities
+@using MediatR
 @using Microsoft.AspNetCore.Authorization
 @inject ICustomerRepository CustomerRepository
+@inject ISender Sender
+@inject Radzen.NotificationService NotificationService
 
 <PageTitle>Customers - ERP</PageTitle>
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" class="mb-4">Customers</RadzenText>
 
-<RadzenDataGrid Data="@customers" AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="20"
-                Style="height: calc(100vh - 180px);">
-    <Columns>
-        <RadzenDataGridColumn TItem="Customer" Property="CustomerCode" Title="Code" Sortable="true" />
-        <RadzenDataGridColumn TItem="Customer" Property="Name" Title="Name" Sortable="true" />
-        <RadzenDataGridColumn TItem="Customer" Property="Email" Title="Email" Sortable="true" />
-        <RadzenDataGridColumn TItem="Customer" Property="Phone" Title="Phone" Sortable="true" />
-        <RadzenDataGridColumn TItem="Customer" Title="Active" Sortable="true">
-            <Template Context="customer">
-                @(customer.IsActive ? "Yes" : "No")
-            </Template>
-        </RadzenDataGridColumn>
-    </Columns>
-</RadzenDataGrid>
+<div class="row">
+
+    @* ── LEFT: Create form ── *@
+    <div class="col-lg-5 mb-4">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">Add New Customer</RadzenText>
+
+            <RadzenTemplateForm TItem="CustomerFormModel" Data="@form" Submit="HandleSubmit">
+                <RadzenStack Gap="0.85rem">
+
+                    @* Validation / server errors *@
+                    @if (formErrors.Count > 0)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false">
+                            <ul class="mb-0 ps-3">
+                                @foreach (var error in formErrors)
+                                {
+                                    <li>@error</li>
+                                }
+                            </ul>
+                        </RadzenAlert>
+                    }
+
+                    @* ── Basic info ── *@
+                    <RadzenText TextStyle="TextStyle.Overline"
+                                style="color: var(--rz-text-secondary-color); letter-spacing: .08em;">
+                        Basic Information
+                    </RadzenText>
+
+                    <div>
+                        <RadzenLabel Text="Customer Name *" Component="Name" />
+                        <RadzenTextBox @bind-Value="form.Name" Name="Name" Style="width: 100%;" />
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <RadzenLabel Text="Phone *" Component="Phone" />
+                            <RadzenTextBox @bind-Value="form.Phone" Name="Phone" Style="width: 100%;" />
+                        </div>
+                        <div class="col-6">
+                            <RadzenLabel Text="Email" Component="Email" />
+                            <RadzenTextBox @bind-Value="form.Email" Name="Email" Style="width: 100%;" />
+                        </div>
+                    </div>
+
+                    @* ── Billing Address ── *@
+                    <RadzenText TextStyle="TextStyle.Overline"
+                                style="color: var(--rz-text-secondary-color); letter-spacing: .08em; margin-top: .25rem;">
+                        Billing Address
+                    </RadzenText>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <RadzenLabel Text="Country *" Component="BillingCountry" />
+                            <RadzenTextBox @bind-Value="form.BillingCountry" Name="BillingCountry" Style="width: 100%;" />
+                        </div>
+                        <div class="col-6">
+                            <RadzenLabel Text="City *" Component="BillingCity" />
+                            <RadzenTextBox @bind-Value="form.BillingCity" Name="BillingCity" Style="width: 100%;" />
+                        </div>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <RadzenLabel Text="Street *" Component="BillingStreet" />
+                            <RadzenTextBox @bind-Value="form.BillingStreet" Name="BillingStreet" Style="width: 100%;" />
+                        </div>
+                        <div class="col-6">
+                            <RadzenLabel Text="Postal Code *" Component="BillingPostal" />
+                            <RadzenTextBox @bind-Value="form.BillingPostalCode" Name="BillingPostal" Style="width: 100%;" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <RadzenLabel Text="Exact Address *" Component="BillingExact" />
+                        <RadzenTextBox @bind-Value="form.BillingExactAddress" Name="BillingExact" Style="width: 100%;" />
+                    </div>
+
+                    @* ── Shipping Address ── *@
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                 Gap="0.5rem" style="margin-top: .25rem;">
+                        <RadzenText TextStyle="TextStyle.Overline"
+                                    style="color: var(--rz-text-secondary-color); letter-spacing: .08em;">
+                            Shipping Address
+                        </RadzenText>
+                        <RadzenCheckBox @bind-Value="sameAsBilling" TValue="bool" />
+                        <RadzenText TextStyle="TextStyle.Caption"
+                                    style="color: var(--rz-text-secondary-color); cursor: pointer;"
+                                    @onclick="@(() => sameAsBilling = !sameAsBilling)">
+                            Same as billing
+                        </RadzenText>
+                    </RadzenStack>
+
+                    @if (!sameAsBilling)
+                    {
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <RadzenLabel Text="Country *" Component="ShippingCountry" />
+                                <RadzenTextBox @bind-Value="form.ShippingCountry" Name="ShippingCountry" Style="width: 100%;" />
+                            </div>
+                            <div class="col-6">
+                                <RadzenLabel Text="City *" Component="ShippingCity" />
+                                <RadzenTextBox @bind-Value="form.ShippingCity" Name="ShippingCity" Style="width: 100%;" />
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <RadzenLabel Text="Street *" Component="ShippingStreet" />
+                                <RadzenTextBox @bind-Value="form.ShippingStreet" Name="ShippingStreet" Style="width: 100%;" />
+                            </div>
+                            <div class="col-6">
+                                <RadzenLabel Text="Postal Code *" Component="ShippingPostal" />
+                                <RadzenTextBox @bind-Value="form.ShippingPostalCode" Name="ShippingPostal" Style="width: 100%;" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <RadzenLabel Text="Exact Address *" Component="ShippingExact" />
+                            <RadzenTextBox @bind-Value="form.ShippingExactAddress" Name="ShippingExact" Style="width: 100%;" />
+                        </div>
+                    }
+
+                    @* ── Active toggle ── *@
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenCheckBox @bind-Value="form.IsActive" TValue="bool" />
+                        <RadzenText TextStyle="TextStyle.Body2">Active customer</RadzenText>
+                    </RadzenStack>
+
+                    <RadzenButton Text="@(isSubmitting ? "Creating..." : "Create Customer")"
+                                  ButtonType="ButtonType.Submit"
+                                  ButtonStyle="ButtonStyle.Primary"
+                                  Disabled="@isSubmitting"
+                                  Style="width: 100%; margin-top: .25rem;" />
+                </RadzenStack>
+            </RadzenTemplateForm>
+        </RadzenCard>
+    </div>
+
+    @* ── RIGHT: Customer list ── *@
+    <div class="col-lg-7">
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" class="mb-3">
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5">Existing Customers</RadzenText>
+                <RadzenBadge Text="@customers.Count.ToString()" BadgeStyle="BadgeStyle.Info" />
+            </RadzenStack>
+
+            <RadzenDataGrid Data="@customers"
+                            AllowSorting="true"
+                            AllowFiltering="true"
+                            FilterMode="FilterMode.SimpleWithMenu"
+                            AllowPaging="true"
+                            PageSize="10"
+                            Style="height: auto;">
+                <Columns>
+                    <RadzenDataGridColumn TItem="Customer" Title="Code" Width="110px" Sortable="false">
+                        <Template Context="customer">
+                            @customer.CustomerCode.Value
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="Customer" Property="Name" Title="Name" />
+
+                    <RadzenDataGridColumn TItem="Customer" Property="Phone" Title="Phone" Width="130px" />
+
+                    <RadzenDataGridColumn TItem="Customer" Property="Email" Title="Email" />
+
+                    <RadzenDataGridColumn TItem="Customer" Title="Active" Width="75px"
+                                          TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                        <Template Context="customer">
+                            @if (customer.IsActive)
+                            {
+                                <RadzenIcon Icon="check_circle" style="color: var(--rz-success);" />
+                            }
+                            else
+                            {
+                                <RadzenIcon Icon="cancel" style="color: var(--rz-danger);" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    </div>
+</div>
 
 @code {
     private List<Customer> customers = new();
+    private CustomerFormModel form = new();
+    private List<string> formErrors = new();
+    private bool sameAsBilling;
+    private bool isSubmitting;
 
     protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
     {
         customers = await CustomerRepository.GetBySpecificationAsync(
             ERP.SharedKernel.Common.Specification<Customer>.Empty,
             CancellationToken.None);
+    }
+
+    private async Task HandleSubmit()
+    {
+        formErrors.Clear();
+        isSubmitting = true;
+
+        // When "same as billing" is ticked, mirror the values before building the command
+        if (sameAsBilling)
+        {
+            form.ShippingCountry = form.BillingCountry;
+            form.ShippingStreet = form.BillingStreet;
+            form.ShippingCity = form.BillingCity;
+            form.ShippingPostalCode = form.BillingPostalCode;
+            form.ShippingExactAddress = form.BillingExactAddress;
+        }
+
+        var command = new CreateCustomerCommand
+        {
+            Name = form.Name,
+            Email = string.IsNullOrWhiteSpace(form.Email) ? null : form.Email.Trim(),
+            Phone = form.Phone,
+            IsActive = form.IsActive,
+            BillingAddress = new CreateCustomerCommand.AddressInput
+            {
+                Country = form.BillingCountry,
+                Street = form.BillingStreet,
+                City = form.BillingCity,
+                PostalCode = form.BillingPostalCode,
+                ExactAddress = form.BillingExactAddress
+            },
+            ShippingAddress = new CreateCustomerCommand.AddressInput
+            {
+                Country = form.ShippingCountry,
+                Street = form.ShippingStreet,
+                City = form.ShippingCity,
+                PostalCode = form.ShippingPostalCode,
+                ExactAddress = form.ShippingExactAddress
+            }
+        };
+
+        try
+        {
+            var result = await Sender.Send(command);
+
+            if (result.IsSuccess)
+            {
+                NotificationService.Notify(new Radzen.NotificationMessage
+                {
+                    Severity = Radzen.NotificationSeverity.Success,
+                    Summary = "Customer created",
+                    Detail = $"'{form.Name}' has been added successfully.",
+                    Duration = 4000
+                });
+
+                form = new CustomerFormModel();
+                sameAsBilling = false;
+                await LoadCustomers();
+            }
+            else
+            {
+                // Domain-level failure (inactive customer, duplicate code, etc.)
+                formErrors = new List<string> { result.Error ?? "Failed to create customer." };
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            // MediatR pipeline ValidationBehavior threw — surface every broken rule
+            formErrors = ex.Errors.Select(e => e.ErrorMessage).ToList();
+        }
+        catch (Exception ex)
+        {
+            formErrors = new List<string> { $"Unexpected error: {ex.Message}" };
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private sealed class CustomerFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string Phone { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+
+        // Billing
+        public string BillingCountry { get; set; } = string.Empty;
+        public string BillingStreet { get; set; } = string.Empty;
+        public string BillingCity { get; set; } = string.Empty;
+        public string BillingPostalCode { get; set; } = string.Empty;
+        public string BillingExactAddress { get; set; } = string.Empty;
+
+        // Shipping
+        public string ShippingCountry { get; set; } = string.Empty;
+        public string ShippingStreet { get; set; } = string.Empty;
+        public string ShippingCity { get; set; } = string.Empty;
+        public string ShippingPostalCode { get; set; } = string.Empty;
+        public string ShippingExactAddress { get; set; } = string.Empty;
     }
 }

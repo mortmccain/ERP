@@ -5,7 +5,6 @@
 @using ERP.Domain.Customers.Entities
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
-@using Radzen
 @inject ISender Mediator
 @inject ICustomerRepository CustomerRepository
 @inject ICurrentUserService CurrentUser
@@ -16,109 +15,304 @@
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" class="mb-4">Create New Sale</RadzenText>
 
-<RadzenTemplateForm TItem="CreateSaleModel" Data="@model" Submit="SubmitSale">
-    <div class="row">
-        @* --- Left Column: Customer Selection --- *@
-        <div class="col-md-4">
-            <RadzenCard>
-                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">Sale Details</RadzenText>
+@if (formErrors.Count > 0)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="true"
+                 Close="@(() => formErrors.Clear())" class="mb-3">
+        <ul class="mb-0 ps-3">
+            @foreach (var error in formErrors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </RadzenAlert>
+}
 
-                <RadzenDropDown @bind-Value="@model.SelectedCustomerId"
-                                Data="@customers"
-                                TextProperty="DisplayName"
-                                ValueProperty="Id"
-                                Placeholder="Select a customer..."
-                                AllowClear="true"
-                                AllowFiltering="true"
-                                style="width: 100%;" />
+<div class="row">
 
-                @if (model.SelectedCustomer != null)
-                {
-                    <RadzenCard Variant="Variant.Filled" class="mt-3">
-                        <RadzenStack>
-                            <RadzenText TextStyle="TextStyle.Subtitle1"><strong>@model.SelectedCustomer.Name</strong></RadzenText>
-                            <RadzenText TextStyle="TextStyle.Body2">Code: @model.SelectedCustomer.CustomerCode</RadzenText>
-                            <RadzenText TextStyle="TextStyle.Body2">Phone: @model.SelectedCustomer.Phone</RadzenText>
-                        </RadzenStack>
-                    </RadzenCard>
-                }
-            </RadzenCard>
-        </div>
+    @* ── Left column: Customer selection ── *@
+    <div class="col-md-4 mb-4">
+        <RadzenCard style="height: 100%;">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">Sale Details</RadzenText>
 
-        @* --- Right Column: Line Items --- *@
-        <div class="col-md-8">
-            <RadzenCard>
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="mb-3">
-                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5">Line Items</RadzenText>
-                    <RadzenButton Text="Add Item" Icon="add" ButtonStyle="ButtonStyle.Primary"
-                                  Size="ButtonSize.Small" Click="AddLineItem" />
-                </RadzenStack>
+            <RadzenLabel Text="Customer *" />
 
-                <RadzenDataGrid @ref="lineItemsGrid" Data="@model.LineItems"
-                                AllowSorting="false" AllowPaging="false" AllowFiltering="false"
-                                style="min-height: 200px;">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="LineItemModel" Property="LineNumber" Title="#" Width="50px" />
-                        <RadzenDataGridColumn TItem="LineItemModel" Property="ProductName" Title="Product">
-                            <EditTemplate Context="item">
-                                <RadzenTextBox @bind-Value="@item.ProductName" style="width: 100%;" />
-                            </EditTemplate>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="LineItemModel" Property="Quantity" Title="Qty" Width="100px">
-                            <EditTemplate Context="item">
-                                <RadzenNumeric @bind-Value="@item.Quantity" Min="1" style="width: 100%;" />
-                            </EditTemplate>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="LineItemModel" Property="UnitPrice" Title="Unit Price" Width="120px">
-                            <EditTemplate Context="item">
-                                <RadzenNumeric @bind-Value="@item.UnitPrice" Min="0" style="width: 100%;" />
-                            </EditTemplate>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="LineItemModel" Title="Total" Width="120px">
-                            <Template Context="item">
-                                <RadzenText>@((item.Quantity * item.UnitPrice).ToString("N2"))</RadzenText>
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="LineItemModel" Width="60px">
-                            <Template Context="item">
-                                <RadzenButton Text="" Icon="delete" ButtonStyle="ButtonStyle.Danger"
-                                              Size="ButtonSize.Small" Click="@(() => RemoveLineItem(item))" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
+            @* ValueChanged (not @bind-Value) so we can also update SelectedCustomer for the info card *@
+            <RadzenDropDown TValue="Guid"
+                            Value="@model.SelectedCustomerId"
+                            ValueChanged="@OnCustomerSelected"
+                            Data="@customers"
+                            TextProperty="DisplayName"
+                            ValueProperty="Id"
+                            Placeholder="Search customers..."
+                            AllowClear="true"
+                            AllowFiltering="true"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            Style="width: 100%;" />
 
-                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" class="mt-3">
-                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span">
-                        Total: @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N2")
+            @if (model.SelectedCustomer is not null)
+            {
+                <RadzenCard Variant="Variant.Filled" class="mt-3">
+                    <RadzenStack Gap="0.3rem">
+                        <RadzenText TextStyle="TextStyle.Subtitle1">
+                            <strong>@model.SelectedCustomer.Name</strong>
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body2">
+                            Code: @model.SelectedCustomer.CustomerCode.Value
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body2">
+                            Phone: @model.SelectedCustomer.Phone
+                        </RadzenText>
+                        @if (!string.IsNullOrEmpty(model.SelectedCustomer.Email))
+                        {
+                            <RadzenText TextStyle="TextStyle.Body2">
+                                Email: @model.SelectedCustomer.Email
+                            </RadzenText>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        </RadzenCard>
+    </div>
+
+    @* ── Right column: Line items ── *@
+    <div class="col-md-8 mb-4">
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         JustifyContent="JustifyContent.SpaceBetween"
+                         AlignItems="AlignItems.Center" class="mb-3">
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5">Line Items</RadzenText>
+                <RadzenButton Text="Add Item" Icon="add" ButtonStyle="ButtonStyle.Success"
+                              Size="ButtonSize.Small" Click="AddLineItem" />
+            </RadzenStack>
+
+            @* Grid is always rendered so @ref is always assigned and Reload() never throws *@
+            <RadzenDataGrid @ref="lineItemsGrid"
+                            Data="@model.LineItems"
+                            TItem="LineItemModel"
+                            AllowSorting="false"
+                            AllowPaging="false"
+                            AllowFiltering="false"
+                            EmptyText="No line items yet — click 'Add Item' above to start.">
+                <Columns>
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="#" Width="55px"
+                                          TextAlign="TextAlign.Center">
+                        <Template Context="item">
+                            @item.LineNumber
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    @* Template (not EditTemplate) = inputs are always visible, no "enter edit mode" needed *@
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="Product Name">
+                        <Template Context="item">
+                            <RadzenTextBox @bind-Value="@item.ProductName"
+                                           Placeholder="Product name..."
+                                           Style="width: 100%;" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="Qty" Width="105px">
+                        <Template Context="item">
+                            <RadzenNumeric TValue="int"
+                                           @bind-Value="@item.Quantity"
+                                           Min="1"
+                                           Max="10000"
+                                           Style="width: 100%;" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="Unit Price" Width="145px">
+                        <Template Context="item">
+                            <RadzenNumeric TValue="decimal"
+                                           @bind-Value="@item.UnitPrice"
+                                           Min="0"
+                                           Format="N2"
+                                           Style="width: 100%;" />
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="Line Total" Width="130px"
+                                          TextAlign="TextAlign.Right">
+                        <Template Context="item">
+                            <span style="font-weight: 500;">
+                                @((item.Quantity * item.UnitPrice).ToString("N2"))
+                            </span>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="LineItemModel" Width="58px"
+                                          TextAlign="TextAlign.Center" Sortable="false">
+                        <Template Context="item">
+                            <RadzenButton Icon="delete_forever"
+                                          ButtonStyle="ButtonStyle.Danger"
+                                          Variant="Variant.Text"
+                                          Size="ButtonSize.Small"
+                                          Click="@(() => RemoveLineItem(item))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+
+            @if (model.LineItems.Count > 0)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End"
+                             class="mt-3 pt-2" style="border-top: 1px solid var(--rz-border-color);">
+                    <RadzenText TextStyle="TextStyle.H6">
+                        Grand Total:&nbsp;
+                        <strong>
+                            @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N2") IRI
+                        </strong>
                     </RadzenText>
                 </RadzenStack>
-            </RadzenCard>
+            }
+        </RadzenCard>
 
-            <div class="text-end mt-3">
-                <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Secondary" Click="Cancel" class="me-2" />
-                <RadzenButton Text="Create Sale" ButtonStyle="ButtonStyle.Primary"
-                              ButtonType="ButtonType.Submit"
-                              Disabled="@(!model.IsFormValid)" />
-            </div>
-        </div>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End"
+                     Gap="0.75rem" class="mt-3">
+            <RadzenButton Text="Cancel"
+                          ButtonStyle="ButtonStyle.Secondary"
+                          Click="Cancel" />
+            <RadzenButton Text="@(isSubmitting ? "Creating..." : "Create Sale")"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="SubmitSale"
+                          Disabled="@(!model.IsFormValid || isSubmitting)" />
+        </RadzenStack>
     </div>
-</RadzenTemplateForm>
+</div>
 
 @code {
     private RadzenDataGrid<LineItemModel> lineItemsGrid = default!;
     private CreateSaleModel model = new();
     private List<CustomerListItem> customers = new();
+    private List<string> formErrors = new();
+    private bool isSubmitting;
 
-    // UI model
+    protected override async Task OnInitializedAsync()
+    {
+        var allCustomers = await CustomerRepository.GetBySpecificationAsync(
+            ERP.SharedKernel.Common.Specification<Customer>.Empty,
+            CancellationToken.None);
+
+        customers = allCustomers
+            .Where(c => c.IsActive)
+            .Select(c => new CustomerListItem
+            {
+                Id = c.Id,
+                DisplayName = $"{c.Name} ({c.CustomerCode.Value})",
+                FullCustomer = c
+            })
+            .OrderBy(c => c.DisplayName)
+            .ToList();
+    }
+
+    // ValueChanged handler: updates both the ID and the full entity.
+    // The full entity is needed so the customer info card can show Name, Phone, etc.
+    private void OnCustomerSelected(Guid id)
+    {
+        model.SelectedCustomerId = id;
+        model.SelectedCustomer = id != Guid.Empty
+            ? customers.FirstOrDefault(c => c.Id == id)?.FullCustomer
+            : null;
+    }
+
+    private async Task AddLineItem()
+    {
+        model.LineItems.Add(new LineItemModel
+        {
+            LineNumber = model.LineItems.Count + 1,
+            Quantity = 1,
+            UnitPrice = 0m
+        });
+        await lineItemsGrid.Reload();
+    }
+
+    private async Task RemoveLineItem(LineItemModel item)
+    {
+        model.LineItems.Remove(item);
+        // Re-sequence so line numbers stay contiguous after a removal
+        for (int i = 0; i < model.LineItems.Count; i++)
+            model.LineItems[i].LineNumber = i + 1;
+        await lineItemsGrid.Reload();
+    }
+
+    private async Task SubmitSale()
+    {
+        if (!model.IsFormValid) return;
+
+        formErrors.Clear();
+        isSubmitting = true;
+
+        try
+        {
+            var command = new CreateSaleCommand
+            {
+                CustomerId = model.SelectedCustomerId,
+                CreatedByUserId = CurrentUser.UserId,
+                CreatedByName = CurrentUser.FullName,
+                Items = model.LineItems.Select(li => new CreateSaleCommand.LineItem
+                {
+                    // No product catalogue yet — prototype uses a generated placeholder ID
+                    ProductId = Guid.NewGuid(),
+                    ProductName = li.ProductName.Trim(),
+                    SKU = null,
+                    Quantity = li.Quantity,
+                    UnitPriceAmount = li.UnitPrice,
+                    Currency = "IRI"
+                }).ToList()
+            };
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                NotificationService.Notify(new Radzen.NotificationMessage
+                {
+                    Severity = Radzen.NotificationSeverity.Success,
+                    Summary = "Sale created",
+                    Detail = "The sale has been saved as a draft.",
+                    Duration = 4000
+                });
+
+                Navigation.NavigateTo("/sales");
+            }
+            else
+            {
+                formErrors = new List<string> { result.Error ?? "Failed to create the sale." };
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            // MediatR validation pipeline rejected the command — surface every broken rule
+            formErrors = ex.Errors.Select(e => e.ErrorMessage).ToList();
+        }
+        catch (Exception ex)
+        {
+            formErrors = new List<string> { $"Unexpected error: {ex.Message}" };
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel() => Navigation.NavigateTo("/sales");
+
+    // ── View models ──────────────────────────────────────────────────────────
+
     private sealed class CreateSaleModel
     {
-        public Guid SelectedCustomerId { get; set; }
+        public Guid SelectedCustomerId { get; set; } = Guid.Empty;
         public Customer? SelectedCustomer { get; set; }
         public List<LineItemModel> LineItems { get; set; } = new();
-        public bool IsFormValid => SelectedCustomer != null
+
+        public bool IsFormValid =>
+            SelectedCustomerId != Guid.Empty
+            && SelectedCustomer is not null
             && LineItems.Count > 0
-            && LineItems.All(li => li.Quantity > 0 && li.UnitPrice >= 0);
+            && LineItems.All(li =>
+                !string.IsNullOrWhiteSpace(li.ProductName)
+                && li.Quantity > 0
+                && li.UnitPrice >= 0);
     }
 
     private sealed class LineItemModel
@@ -126,101 +320,13 @@
         public int LineNumber { get; set; }
         public string ProductName { get; set; } = string.Empty;
         public int Quantity { get; set; } = 1;
-        public decimal UnitPrice { get; set; }
+        public decimal UnitPrice { get; set; } = 0m;
     }
 
-    // Simple customer list item
     private sealed class CustomerListItem
     {
         public Guid Id { get; init; }
         public string DisplayName { get; init; } = string.Empty;
         public Customer? FullCustomer { get; init; }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        var allCustomers = await CustomerRepository.GetBySpecificationAsync
-        (
-            ERP.SharedKernel.Common.Specification<Customer>.Empty,
-            CancellationToken.None
-        );
-
-        customers = allCustomers
-            .Where(c => c.IsActive)
-            .Select(c => new CustomerListItem
-            {
-                Id = c.Id,
-                DisplayName = $"{c.Name} ({c.CustomerCode})",
-                FullCustomer = c
-            }).ToList();
-    }
-
-    private void AddLineItem()
-    {
-        var lineNumber = model.LineItems.Count + 1;  // +1 so it starts from 1
-        model.LineItems.Add(new LineItemModel
-        {
-            Quantity = 1,
-            UnitPrice = 0,
-            LineNumber = lineNumber  // Set the line number based on current count + 1
-        });
-        lineItemsGrid.Reload();
-    }
-
-    private void RemoveLineItem(LineItemModel item)
-    {
-        model.LineItems.Remove(item);
-        lineItemsGrid.Reload();
-    }
-
-    private async Task SubmitSale()
-    {
-        if (!model.IsFormValid) return;
-
-        var command = new CreateSaleCommand
-        {
-            CustomerId = model.SelectedCustomerId,
-            CreatedByUserId = CurrentUser.UserId,
-            CreatedByName = CurrentUser.FullName,
-            Items = model.LineItems.Select(li => new CreateSaleCommand.LineItem
-            {
-                ProductId = Guid.NewGuid(),
-                ProductName = li.ProductName,
-                SKU = null,
-                Quantity = li.Quantity,
-                UnitPriceAmount = li.UnitPrice,
-                Currency = "IRI"
-            }).ToList()
-        };
-
-        var result = await Mediator.Send(command);
-
-        if (result.IsSuccess)
-        {
-            NotificationService.Notify(new NotificationMessage
-            {
-                Severity = NotificationSeverity.Success,
-                Summary = "Success",
-                Detail = $"Sale created with ID: {result.Value}",
-                Duration = 4000
-            });
-            model = new CreateSaleModel();
-            await lineItemsGrid.Reload();
-        }
-        else
-        {
-            NotificationService.Notify(new NotificationMessage
-            {
-                Severity = NotificationSeverity.Error,
-                Summary = "Error",
-                Detail = result.Error,
-                Duration = 6000
-            });
-        }
-    }
-
-    private void Cancel()
-    {
-        Navigation.NavigateTo("/sales");
     }
 }

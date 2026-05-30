@@ -18,8 +18,9 @@
 
     <RadzenSidebar>
         <RadzenPanelMenu>
-            <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" />
-            <RadzenPanelMenuItem Text="Sales" Icon="shopping_cart" Path="/sales" />
+            @* NavLinkMatch.All = only highlight when URL is exactly this path, not any path that starts with it *@
+            <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" Match="NavLinkMatch.All" />
+            <RadzenPanelMenuItem Text="Sales" Icon="shopping_cart" Path="/sales" Match="NavLinkMatch.All" />
             <RadzenPanelMenuItem Text="New Sale" Icon="add_shopping_cart" Path="/sales/create" />
             <RadzenPanelMenuItem Text="Customers" Icon="people" Path="/customers" />
             <AuthorizeView Roles="Admin,Manager">
@@ -35,7 +36,6 @@
     </RadzenBody>
 </RadzenLayout>
 
-@* Must exist in the layout for DialogService.Confirm() to render its popup *@
 <RadzenDialog />
 
 @code {

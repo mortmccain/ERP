@@ -17,6 +17,7 @@ namespace ERP.Infrastructure.Persistence
         {
             // Get the most recently created SaleNumber as a string
             var lastCustomerCodeString = await _dbContext.Customers
+                .AsNoTracking()
                 .OrderByDescending(c => c.CreatedAtUtc)
                 .Select(c => c.CustomerCode)
                 .FirstOrDefaultAsync(cancellationToken);
