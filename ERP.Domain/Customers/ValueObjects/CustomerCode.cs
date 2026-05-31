@@ -1,5 +1,4 @@
-﻿using ERP.Domain.Sales.ValueObjects;
-using ERP.SharedKernel.Primitives;
+﻿using ERP.SharedKernel.Primitives;
 
 namespace ERP.Domain.Customers.ValueObjects;
 
@@ -16,7 +15,7 @@ public sealed class CustomerCode : BaseValueObject
 
         if (year < 200 || year > 2100) throw new ArgumentException("Invalid Year");
 
-        if (sequence < 1 || sequence > 9999) 
+        if (sequence < 1 || sequence > 9999)
             throw new ArgumentException("How did we get so many customers this year alone, and are still using this program?");
 
         Prefix = prefix.ToUpperInvariant();

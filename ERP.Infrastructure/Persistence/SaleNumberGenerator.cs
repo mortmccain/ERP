@@ -20,6 +20,7 @@ public sealed class SaleNumberGenerator : ISaleNumberGenerator
     {
         // Get the most recently created SaleNumber as a string
         var lastSaleNumberString = await _dbContext.Sales
+            .AsNoTracking()
             .OrderByDescending(s => s.CreatedAtUtc)
             .Select(s => s.SaleNumber)
             .FirstOrDefaultAsync(cancellationToken);

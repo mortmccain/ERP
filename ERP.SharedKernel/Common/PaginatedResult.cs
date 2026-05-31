@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ERP.SharedKernel.Common;
+﻿namespace ERP.SharedKernel.Common;
 
 /// <summary>
 /// Wraps a paginated collection with metadata for UI pagination controls.

@@ -179,6 +179,7 @@
         </RadzenStack>
     </div>
 </div>
+<RadzenNotification />
 
 @code {
     private RadzenDataGrid<LineItemModel> lineItemsGrid = default!;
@@ -272,8 +273,10 @@
                     Detail = "The sale has been saved as a draft.",
                     Duration = 4000
                 });
-
-                Navigation.NavigateTo("/sales");
+                model = new CreateSaleModel();
+                formErrors.Clear();
+                await lineItemsGrid.Reload();
+                // Navigation.NavigateTo("/sales");
             }
             else
             {

@@ -1,48 +1,299 @@
 ﻿@page "/sales"
 @attribute [Authorize]
+@using ERP.Application.Common.Interfaces
+@using ERP.Application.Sales.Commands.CancelSale
 @using ERP.Application.Sales.DTOs
 @using ERP.Application.Sales.Queries.GetSalesPaginated
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ISender Mediator
+@inject ICurrentUserService CurrentUser
+@inject NavigationManager Navigation
+@inject Radzen.NotificationService NotificationService
 
 <PageTitle>Sales - ERP</PageTitle>
 
 <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3" class="mb-4">Sales</RadzenText>
 
-<RadzenDataGrid @ref="grid" Data="@sales" Count="@totalCount" LoadData="@LoadData"
-                AllowSorting="true" AllowFiltering="true" AllowPaging="true" PageSize="20"
-                style="height: calc(100vh - 200px);">
+@* ── Pending cancellation panel ──────────────────────────────────────── *@
+@if (pendingCancel is not null)
+{
+    <RadzenCard class="mb-4" style="border-left: 4px solid var(--rz-danger);">
+        <RadzenStack Gap="0.75rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="warning" style="color: var(--rz-danger);" />
+                <RadzenText TextStyle="TextStyle.Subtitle1">
+                    Cancelling <strong>@pendingCancel.SaleNumber</strong>
+                    — @pendingCancel.CustomerName
+                    (<RadzenBadge Text="@pendingCancel.Status"
+                                  BadgeStyle="@GetStatusBadgeStyle(pendingCancel.Status)" />)
+                </RadzenText>
+            </RadzenStack>
+
+            <div>
+                <RadzenLabel Text="Cancellation reason *" />
+                <RadzenTextArea @bind-Value="cancellationReason"
+                                Placeholder="Provide a clear reason — this is mandatory for all roles."
+                                Rows="2"
+                                Style="width: 100%;" />
+            </div>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="@(isCancelling ? "Cancelling..." : "Confirm Cancellation")"
+                              ButtonStyle="ButtonStyle.Danger"
+                              Icon="cancel"
+                              Click="ConfirmCancel"
+                              IsBusy="@isCancelling"
+                              Disabled="@(string.IsNullOrWhiteSpace(cancellationReason) || isCancelling)" />
+                <RadzenButton Text="Discard"
+                              ButtonStyle="ButtonStyle.Secondary"
+                              Click="DiscardCancel"
+                              Disabled="@isCancelling" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@* ── Sales grid ─────────────────────────────────────────────────────── *@
+<RadzenDataGrid Data="@sales"
+                TItem="SaleListItemDto"
+                AllowSorting="true"
+                AllowFiltering="true"
+                FilterMode="FilterMode.SimpleWithMenu"
+                AllowPaging="true"
+                PageSize="20"
+                IsLoading="@isLoading"
+                EmptyText="No sales found."
+                Style="height: calc(100vh - 200px);">
     <Columns>
-        <RadzenDataGridColumn TItem="SaleListItemDto" Property="SaleNumber" Title="Sale #" Sortable="true" />
-        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CustomerName" Title="Customer" Sortable="true" />
-        <RadzenDataGridColumn TItem="SaleListItemDto" Property="Status" Title="Status" Sortable="true" />
-        <RadzenDataGridColumn TItem="SaleListItemDto" Title="Total" Sortable="true">
+
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="SaleNumber"
+                              Title="Sale #" Width="130px" />
+
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CustomerName"
+                              Title="Customer" />
+
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="Status"
+                              Title="Status" Width="120px" TextAlign="TextAlign.Center">
+            <Template Context="sale">
+                <RadzenBadge Text="@sale.Status" BadgeStyle="@GetStatusBadgeStyle(sale.Status)" />
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="Total.Amount"
+                              Title="Total" Width="150px" TextAlign="TextAlign.Right">
             <Template Context="sale">
                 @sale.Total.Amount.ToString("N2") @sale.Total.Currency
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CreatedAtUtc" Title="Date" Sortable="true"
+
+        @* Admin and Manager see who created the sale *@
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CreatedByName"
+                              Title="Created By" Width="140px"
+                              Visible="@isAdminOrManager" />
+
+        <RadzenDataGridColumn TItem="SaleListItemDto" Property="CreatedAtUtc"
+                              Title="Date" Width="155px"
                               FormatString="{0:yyyy-MM-dd HH:mm}" />
+
+        <RadzenDataGridColumn TItem="SaleListItemDto"
+                              Title="" Width="95px"
+                              TextAlign="TextAlign.Center"
+                              Sortable="false" Filterable="false">
+            <Template Context="sale">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.15rem"
+                             JustifyContent="JustifyContent.Center">
+
+                    <RadzenButton Icon="visibility"
+                                  ButtonStyle="ButtonStyle.Info"
+                                  Variant="Variant.Text"
+                                  Size="ButtonSize.Small"
+                                  title="View details"
+                                  Click="@(() => Navigation.NavigateTo($"/sales/{sale.Id}"))" />
+
+                    @if (CanCancel(sale))
+                    {
+                        <RadzenButton Icon="cancel"
+                                      ButtonStyle="ButtonStyle.Danger"
+                                      Variant="Variant.Text"
+                                      Size="ButtonSize.Small"
+                                      title="Cancel sale"
+                                      Click="@(() => StartCancel(sale))" />
+                    }
+                </RadzenStack>
+            </Template>
+        </RadzenDataGridColumn>
+
     </Columns>
 </RadzenDataGrid>
 
 @code {
-    private RadzenDataGrid<SaleListItemDto> grid = default!;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
     private List<SaleListItemDto> sales = new();
-    private int totalCount;
+    private bool isLoading;
 
-    private async Task LoadData(LoadDataArgs args)
+    // Role flags — set once in OnInitializedAsync and reused everywhere
+    private bool isAdmin;
+    private bool isManager;
+    private bool isAdminOrManager;
+    private Guid currentUserId;
+    private IReadOnlyList<string> currentUserRoles = Array.Empty<string>();
+
+    // Cancellation state
+    private SaleListItemDto? pendingCancel;
+    private string cancellationReason = string.Empty;
+    private bool isCancelling;
+
+    protected override async Task OnInitializedAsync()
     {
-        var query = new GetSalesPaginatedQuery
-        {
-            PageNumber = (args.Skip ?? 0) / (args.Top ?? 20) + 1,
-            PageSize = args.Top ?? 20,
-            SearchTerm = args.Filters?.FirstOrDefault()?.FilterValue?.ToString()
-        };
+        var authState = await AuthStateTask;
+        var user = authState.User;
 
-        var result = await Mediator.Send(query);
-        sales = result.Items.ToList();
-        totalCount = result.TotalCount;
+        isAdmin = user.IsInRole("Admin");
+        isManager = user.IsInRole("Manager");
+        isAdminOrManager = isAdmin || isManager;
+        currentUserId = CurrentUser.UserId;
+
+        // Build the roles list for the cancel command
+        var roles = new List<string>();
+        if (isAdmin) roles.Add("Admin");
+        if (isManager) roles.Add("Manager");
+        if (user.IsInRole("Employee")) roles.Add("Employee");
+        if (user.IsInRole("ReadOnly")) roles.Add("ReadOnly");
+        currentUserRoles = roles.AsReadOnly();
+
+        await LoadSales();
     }
+
+    private async Task LoadSales()
+    {
+        isLoading = true;
+        try
+        {
+            var query = new GetSalesPaginatedQuery
+            {
+                PageNumber = 1,
+                PageSize = 500,   // Prototype: load all; Radzen handles client-side paging
+                FilterByCreatorId = isAdminOrManager ? null : currentUserId
+            };
+
+            var result = await Mediator.Send(query);
+            sales = result.Items.ToList();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // ── Cancel flow ──────────────────────────────────────────────────────
+
+    private void StartCancel(SaleListItemDto sale)
+    {
+        pendingCancel = sale;
+        cancellationReason = string.Empty;
+    }
+
+    private void DiscardCancel()
+    {
+        pendingCancel = null;
+        cancellationReason = string.Empty;
+    }
+
+    private async Task ConfirmCancel()
+    {
+        if (pendingCancel is null || string.IsNullOrWhiteSpace(cancellationReason))
+            return;
+
+        isCancelling = true;
+        var saleNumber = pendingCancel.SaleNumber;
+
+        try
+        {
+            var command = new CancelSaleCommand
+            {
+                SaleId = pendingCancel.Id,
+                CancelledByUserId = currentUserId,
+                UserRoles = currentUserRoles,
+                Reason = cancellationReason.Trim()
+            };
+
+            var result = await Mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                NotificationService.Notify(new Radzen.NotificationMessage
+                {
+                    Severity = Radzen.NotificationSeverity.Success,
+                    Summary = "Sale cancelled",
+                    Detail = $"{saleNumber} has been cancelled.",
+                    Duration = 4000
+                });
+
+                pendingCancel = null;
+                cancellationReason = string.Empty;
+                await LoadSales();
+            }
+            else
+            {
+                NotificationService.Notify(new Radzen.NotificationMessage
+                {
+                    Severity = Radzen.NotificationSeverity.Error,
+                    Summary = "Cancellation failed",
+                    Detail = result.Error,
+                    Duration = 6000
+                });
+            }
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            NotificationService.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Error,
+                Summary = "Validation error",
+                Detail = string.Join(" ", ex.Errors.Select(e => e.ErrorMessage)),
+                Duration = 6000
+            });
+        }
+        finally
+        {
+            isCancelling = false;
+        }
+    }
+
+    // ── Permission logic ─────────────────────────────────────────────────
+
+    private bool CanCancel(SaleListItemDto sale)
+    {
+        // Terminal statuses — cancellation is never possible from UI
+        if (sale.Status is "Cancelled" or "Shipped" or "Invoiced")
+            return false;
+
+        if (isAdmin)
+            // Admins: Draft, Pending, Approved
+            return sale.Status is "Draft" or "Pending" or "Approved";
+
+        if (isManager)
+            // Managers: Draft, Pending
+            return sale.Status is "Draft" or "Pending";
+
+        // Employees: only their own Draft sales
+        return sale.Status == "Draft" && sale.CreatedByUserId == currentUserId;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
+    {
+        "Draft" => BadgeStyle.Secondary,
+        "Pending" => BadgeStyle.Warning,
+        "Approved" => BadgeStyle.Success,
+        "Shipped" => BadgeStyle.Info,
+        "Invoiced" => BadgeStyle.Primary,
+        "Cancelled" => BadgeStyle.Danger,
+        _ => BadgeStyle.Secondary
+    };
 }

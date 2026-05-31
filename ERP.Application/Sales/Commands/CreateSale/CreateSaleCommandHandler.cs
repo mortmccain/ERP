@@ -68,14 +68,22 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         // For now, we generate a simple sequential-ish number.
         var saleNumber = await _saleNumberGenerator.NextAsync("SALE", cancellationToken);
         // ------------------------------------------------------------------
-        // STEP 3: Create the Sale Aggregate
+        // STEP 3: Create the address and Sale Aggregate
         // ------------------------------------------------------------------
+        var shippingAddress = new Address
+            (
+                 customer.ShippingAddress.Country,
+                 customer.ShippingAddress.Street,
+                 customer.ShippingAddress.City,
+                 customer.ShippingAddress.PostalCode,
+                 customer.ShippingAddress.ExactAddress
+            );
         var sale = Sale.Create
             (
             // shouldn't we take some of these from the database for security reasons? _currentUserService.UserId 
             command.CustomerId,
-            customer.Name,      
-            customer.ShippingAddress,
+            customer.Name,
+            shippingAddress,
             saleNumber,
             command.CreatedByUserId,
             command.CreatedByName
@@ -96,7 +104,7 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
                 item.Quantity,
                 unitPrice,
                 productCategory: "General"      // Could come from Product aggregate in production
-                ); 
+                );
         }
 
         // ------------------------------------------------------------------

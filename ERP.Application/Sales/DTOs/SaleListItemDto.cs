@@ -15,4 +15,6 @@ public sealed class SaleListItemDto
     public string Status { get; init; } = string.Empty;
     public MoneyDto Total { get; init; } = null!;
     public DateTime CreatedAtUtc { get; init; }
+    public Guid CreatedByUserId { get; init; }        // needed for employee ownership check
+    public string CreatedByName { get; init; } = string.Empty;  // shown in admin/manager view
 }

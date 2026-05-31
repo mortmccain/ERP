@@ -104,6 +104,7 @@
         </RadzenCard>
     </div>
 </div>
+<RadzenNotification />
 
 @code {
 
@@ -210,13 +211,13 @@
                 new Claim("FullName", newUser.FullName));
         }
 
-        NotificationService.Notify(new()
+        NotificationService.Notify(new Radzen.NotificationMessage
         {
-            Severity = NotificationSeverity.Success,
-            Summary = "Created",
-            Detail = "User created successfully"
+            Severity = Radzen.NotificationSeverity.Success,
+            Summary = "User created",
+            Detail = $"'{newUser.FullName}' has been added successfully.",
+            Duration = 4000
         });
-
         newUser = new();
         await LoadUsers();
     }

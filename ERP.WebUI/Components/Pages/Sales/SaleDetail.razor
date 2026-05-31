@@ -1,0 +1,37 @@
+﻿@page "/sales/{Id:guid}"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager Navigation
+
+<PageTitle>Sale Detail - ERP</PageTitle>
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+             Gap="0.75rem" class="mb-4">
+    <RadzenButton Icon="arrow_back" Variant="Variant.Text"
+                  ButtonStyle="ButtonStyle.Secondary"
+                  Click="@(() => Navigation.NavigateTo("/sales"))" />
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3">Sale Detail</RadzenText>
+</RadzenStack>
+
+<RadzenCard>
+    <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Style="padding: 3rem;">
+        <RadzenIcon Icon="construction"
+                    Style="font-size: 64px; color: var(--rz-text-secondary-color);" />
+        <RadzenText TextStyle="TextStyle.H5" ThemeColor="TextColor.Secondary">
+            Coming Soon
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Body1" ThemeColor="TextColor.Secondary">
+            Full detail view, editing (for Draft/Pending), and workflow actions
+            will be implemented here.
+        </RadzenText>
+        <RadzenText TextStyle="TextStyle.Caption"
+                    style="font-family: monospace; color: var(--rz-text-secondary-color);">
+            Sale ID: @Id
+        </RadzenText>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+}
