@@ -1,6 +1,9 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@using Radzen.Blazor
 @inject NavigationManager Navigation
+@inject Radzen.ThemeService ThemeService
+@inject IJSRuntime JSRuntime
 
 <RadzenLayout>
     <RadzenHeader>
@@ -8,6 +11,12 @@
                      AlignItems="AlignItems.Center" class="w-100 px-3">
             <RadzenText TextStyle="TextStyle.H5" TagName="TagName.Span">ERP System</RadzenText>
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                <!-- Theme dropdown -->
+                <RadzenDropDown TValue="string"
+                                Value="@selectedTheme"
+                                ValueChanged="@ChangeTheme"
+                                Data="@freeThemeList"
+                                Style="width: 140px;" />
                 <RadzenBadge Text="@roleBadgeText" BadgeStyle="@roleBadgeStyle" />
                 <RadzenText TextStyle="TextStyle.Body2">@displayName</RadzenText>
                 <RadzenButton Text="Logout" ButtonStyle="ButtonStyle.Secondary"
@@ -46,6 +55,17 @@
     private string roleBadgeText = string.Empty;
     private BadgeStyle roleBadgeStyle = BadgeStyle.Light;
 
+    // Theme dropdown fields
+    private string selectedTheme = "standard-dark";
+    private readonly List<string> freeThemeList = new()
+    {
+        "standard", "standard-dark",
+        "material", "material-dark",
+        "humanistic", "humanistic-dark",
+        "software", "software-dark",
+        "dark", "default"
+    };
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask;
@@ -65,11 +85,43 @@
             roleBadgeText = "Manager";
             roleBadgeStyle = BadgeStyle.Warning;
         }
-        else
+        else if (user.IsInRole("Employee"))
         {
             roleBadgeText = "Employee";
             roleBadgeStyle = BadgeStyle.Info;
         }
+        else
+        {
+            roleBadgeText = "Boss Man (ReadOnly)";
+            roleBadgeStyle = BadgeStyle.Info;
+
+        }
+
+        // Load saved theme preference
+        try
+        {
+            var savedTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "radzen_theme");
+            if (!string.IsNullOrEmpty(savedTheme) && freeThemeList.Contains(savedTheme))
+            {
+                selectedTheme = savedTheme;
+                ThemeService.SetTheme(selectedTheme);
+            }
+            else
+            {
+                ThemeService.SetTheme(selectedTheme);
+            }
+        }
+        catch
+        {
+            ThemeService.SetTheme(selectedTheme);
+        }
+    }
+
+    private async Task ChangeTheme(string theme)
+    {
+        selectedTheme = theme;
+        ThemeService.SetTheme(theme);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "radzen_theme", theme);
     }
 
     private void Logout() => Navigation.NavigateTo("/Account/Logout", forceLoad: true);

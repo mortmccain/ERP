@@ -63,7 +63,7 @@ public sealed class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand
             return Result.Failure("You can only cancel your own sales.");
 
         // STEP 4: Delegate to the domain aggregate
-        // (guards: already cancelled, shipped, invoiced, empty reason, empty userId)
+        // (guards: already cancelled, shipped, invoiced, empty reason, empty userId)       // something is fucking with the program in here
         try
         {
             sale.Cancel(command.CancelledByUserId, command.Reason);

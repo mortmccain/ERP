@@ -50,6 +50,18 @@ public sealed class SaleRepository : ISaleRepository
         return new PaginatedResult<Sale>(items, totalCount, pageNumber, pageSize);
     }
 
+    public async Task<List<Sale>> GetAllBySpecificationAsync(
+    Specification<Sale> specification,
+    CancellationToken cancellationToken = default)
+    {
+        // No .Include(s => s.LineItems) — dashboard only reads Sale-level aggregate fields.
+        // Total, Status, CreatedAtUtc and CreatedByUserId are all on the Sale root itself.
+        return await _dbContext.Sales
+            .Where(specification.ToExpression())
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public void Add(Sale sale)
     {
         // same thing as _dbContext.Add(sale) just more explicit

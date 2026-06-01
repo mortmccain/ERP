@@ -1,37 +1,639 @@
 ﻿@page "/sales/{Id:guid}"
 @attribute [Authorize]
+@using ERP.Application.Common.Interfaces
+@using ERP.Application.Sales.Commands.ApproveSale
+@using ERP.Application.Sales.Commands.CancelSale
+@using ERP.Application.Sales.Commands.SubmitSale
+@using ERP.Application.Sales.DTOs
+@using ERP.Application.Sales.Queries.GetSaleById
+@using MediatR
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ISender Mediator
+@inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
+@inject Radzen.NotificationService NotificationService
 
-<PageTitle>Sale Detail - ERP</PageTitle>
+<PageTitle>@(sale is not null ? $"{sale.SaleNumber} — ERP" : "Sale Detail — ERP")</PageTitle>
 
-<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-             Gap="0.75rem" class="mb-4">
-    <RadzenButton Icon="arrow_back" Variant="Variant.Text"
-                  ButtonStyle="ButtonStyle.Secondary"
-                  Click="@(() => Navigation.NavigateTo("/sales"))" />
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H3">Sale Detail</RadzenText>
-</RadzenStack>
-
-<RadzenCard>
-    <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Style="padding: 3rem;">
-        <RadzenIcon Icon="construction"
-                    Style="font-size: 64px; color: var(--rz-text-secondary-color);" />
-        <RadzenText TextStyle="TextStyle.H5" ThemeColor="TextColor.Secondary">
-            Coming Soon
-        </RadzenText>
-        <RadzenText TextStyle="TextStyle.Body1" ThemeColor="TextColor.Secondary">
-            Full detail view, editing (for Draft/Pending), and workflow actions
-            will be implemented here.
-        </RadzenText>
-        <RadzenText TextStyle="TextStyle.Caption"
-                    style="font-family: monospace; color: var(--rz-text-secondary-color);">
-            Sale ID: @Id
-        </RadzenText>
+@* ── Loading ── *@
+@if (isLoading)
+{
+    <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center"
+                 style="height: 300px;" Gap="1rem">
+        <RadzenProgressBarCircular ShowValue="false"
+                                   Mode="ProgressBarMode.Indeterminate"
+                                   Size="ProgressBarCircularSize.Large" />
+        <RadzenText ThemeColor="TextColor.Secondary">Loading sale…</RadzenText>
     </RadzenStack>
-</RadzenCard>
+}
+
+@* ── Load error ── *@
+else if (!string.IsNullOrEmpty(loadError))
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" class="mb-3">@loadError</RadzenAlert>
+    <RadzenButton Text="← Back to Sales" ButtonStyle="ButtonStyle.Secondary"
+                  Click="@(() => Navigation.NavigateTo("/sales"))" />
+}
+
+@* ── Main page ── *@
+else if (sale is not null)
+{
+    @* PAGE HEADER *@
+    <RadzenStack Orientation="Orientation.Horizontal"
+                 AlignItems="AlignItems.Start"
+                 JustifyContent="JustifyContent.SpaceBetween"
+                 Wrap="FlexWrap.Wrap"
+                 Gap="0.75rem"
+                 class="mb-4">
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+            <RadzenButton Icon="arrow_back" Variant="Variant.Text"
+                          ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                          Click="@(() => Navigation.NavigateTo("/sales"))" />
+            <div>
+                <RadzenStack Orientation="Orientation.Horizontal"
+                             AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H2" class="mb-0">
+                        @sale.SaleNumber
+                    </RadzenText>
+                    <RadzenBadge Text="@sale.Status"
+                                 BadgeStyle="@GetStatusBadgeStyle(sale.Status)" />
+                </RadzenStack>
+                <RadzenText TextStyle="TextStyle.Body2" ThemeColor="TextColor.Secondary">
+                    @sale.CustomerName &nbsp;·&nbsp;
+                    Created by @sale.CreatedByName &nbsp;·&nbsp;
+                    @sale.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                </RadzenText>
+            </div>
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            @if (CanSubmit())
+            {
+                <RadzenButton Text="Submit for Review" Icon="send"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Click="HandleSubmit" Disabled="@isActioning" />
+            }
+            @if (CanApprove())
+            {
+                <RadzenButton Text="Approve Sale" Icon="check_circle"
+                              ButtonStyle="ButtonStyle.Success"
+                              Click="HandleApprove" Disabled="@isActioning" />
+            }
+            @if (CanCancel() && !showCancelForm)
+            {
+                <RadzenButton Text="Cancel Sale" Icon="cancel"
+                              ButtonStyle="ButtonStyle.Danger" Variant="Variant.Outlined"
+                              Click="@(() => showCancelForm = true)"
+                              Disabled="@isActioning" />
+            }
+        </RadzenStack>
+    </RadzenStack>
+
+    @* STATUS STEPPER *@
+    @if (sale.Status != "Cancelled")
+    {
+        <RadzenCard class="mb-4" style="padding: 1.1rem 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                @foreach (var step in StatusSteps)
+                {
+                    var sc = IsStepCompleted(step.Key);
+                    var cur = sale.Status == step.Key;
+                    var ts = GetStepTimestamp(step.Key);
+
+                    var bg = sc ? "var(--rz-success)" : cur ? "var(--rz-primary)" : "transparent";
+                    var bd = sc ? "var(--rz-success)" : cur ? "var(--rz-primary)" : "var(--rz-base-border-color)";
+                    var col = sc ? "var(--rz-success)" : cur ? "var(--rz-primary)" : "var(--rz-text-secondary-color)";
+                    var fw = cur ? "700" : "400";
+
+                    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;">
+                        <div style="width:26px; height:26px; border-radius:50%;
+                            background:@bg; border:2px solid @bd;
+                            display:flex; align-items:center; justify-content:center;">
+                            @if (sc)
+                            {
+                                <span style="color:white; font-size:13px; font-weight:bold; line-height:1;">✓</span>
+                            }
+                            else if (cur)
+                            {
+                                <div style="width:9px; height:9px; border-radius:50%; background:var(--rz-primary);"></div>
+                            }
+                        </div>
+                        <span style="font-size:11px; text-align:center; white-space:nowrap;
+                        font-weight:@fw; color:@col;">@step.Value</span>
+                        @if (ts.HasValue)
+                        {
+                            <span style="font-size:10px; color:var(--rz-text-secondary-color);">
+                                @ts.Value.ToLocalTime().ToString("MM/dd HH:mm")
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        </RadzenCard>
+    }
+
+    @* CANCELLED BANNER *@
+    @if (sale.Status == "Cancelled")
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="mb-4">
+            <RadzenStack Gap="0.2rem">
+                <RadzenText TextStyle="TextStyle.Subtitle1">
+                    <strong>This sale was cancelled</strong>
+                    @if (sale.CancelledAtUtc.HasValue)
+                    {
+                        <span> on @sale.CancelledAtUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                    }
+                </RadzenText>
+                @if (!string.IsNullOrEmpty(sale.CancellationReason))
+                {
+                    <RadzenText TextStyle="TextStyle.Body2">
+                        Reason: <em>@sale.CancellationReason</em>
+                    </RadzenText>
+                }
+            </RadzenStack>
+        </RadzenAlert>
+    }
+
+    @* CANCEL FORM *@
+    @if (showCancelForm)
+    {
+        <RadzenCard class="mb-4" style="border-left:4px solid var(--rz-danger);">
+            <RadzenStack Gap="0.75rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenIcon Icon="warning" style="color:var(--rz-danger); font-size:1.25rem;" />
+                    <RadzenText TextStyle="TextStyle.Subtitle1">
+                        Cancelling <strong>@sale.SaleNumber</strong> — <strong>@sale.CustomerName</strong>
+                        &nbsp;(<RadzenBadge Text="@sale.Status"
+                                            BadgeStyle="@GetStatusBadgeStyle(sale.Status)" />)
+                    </RadzenText>
+                </RadzenStack>
+                <div>
+                    <RadzenLabel Text="Cancellation reason *" />
+                    <RadzenTextArea @bind-Value="cancellationReason"
+                                    Placeholder="Provide a clear, specific reason. Mandatory for all roles and recorded permanently."
+                                    Rows="3" Style="width:100%;" />
+                </div>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                    <RadzenButton Text="@(isActioning ? "Cancelling…" : "Confirm Cancellation")"
+                                  ButtonStyle="ButtonStyle.Danger" Icon="cancel"
+                                  Click="HandleCancel"
+                                  Disabled="@(string.IsNullOrWhiteSpace(cancellationReason) || isActioning)" />
+                    <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Secondary"
+                                  Click="HideCancelForm" Disabled="@isActioning" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    @* MAIN CONTENT *@
+    <div class="row">
+
+        @* Left: details + line items *@
+        <div class="col-lg-8 mb-4">
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">
+                    Sale Information
+                </RadzenText>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Sale Number</span>
+                        <RadzenText TextStyle="TextStyle.Body1"><strong>@sale.SaleNumber</strong></RadzenText>
+                    </div>
+                    <div class="col-sm-6">
+                        <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Status</span>
+                        <RadzenBadge Text="@sale.Status" BadgeStyle="@GetStatusBadgeStyle(sale.Status)" />
+                    </div>
+                    <div class="col-sm-6">
+                        <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Customer</span>
+                        <RadzenText TextStyle="TextStyle.Body1">@sale.CustomerName</RadzenText>
+                    </div>
+                    <div class="col-sm-6">
+                        <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Created By</span>
+                        <RadzenText TextStyle="TextStyle.Body1">@sale.CreatedByName</RadzenText>
+                    </div>
+                    <div class="col-sm-6">
+                        <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Created Date</span>
+                        <RadzenText TextStyle="TextStyle.Body1">
+                            @sale.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                        </RadzenText>
+                    </div>
+                    @if (sale.ApprovedAtUtc.HasValue)
+                    {
+                        <div class="col-sm-6">
+                            <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Approved Date</span>
+                            <RadzenText TextStyle="TextStyle.Body1">
+                                @sale.ApprovedAtUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                            </RadzenText>
+                        </div>
+                    }
+                    @if (sale.ShippedAtUtc.HasValue)
+                    {
+                        <div class="col-sm-6">
+                            <span style="display:block; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--rz-text-secondary-color);">Shipped Date</span>
+                            <RadzenText TextStyle="TextStyle.Body1">
+                                @sale.ShippedAtUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                            </RadzenText>
+                        </div>
+                    }
+                </div>
+            </RadzenCard>
+
+            <RadzenCard>
+                <RadzenStack Orientation="Orientation.Horizontal"
+                             AlignItems="AlignItems.Center"
+                             JustifyContent="JustifyContent.SpaceBetween"
+                             class="mb-3">
+                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-0">Line Items</RadzenText>
+                    <RadzenBadge Text="@sale.LineItems.Count.ToString()" BadgeStyle="BadgeStyle.Light" />
+                </RadzenStack>
+
+                <RadzenDataGrid Data="@sale.LineItems" TItem="SaleLineItemDto"
+                                AllowSorting="false" AllowPaging="false" AllowFiltering="false"
+                                EmptyText="No line items on this sale.">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="#"
+                                              Width="50px" TextAlign="TextAlign.Center">
+                            <Template Context="li">@li.LineNumber</Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Product">
+                            <Template Context="li">
+                                <div>
+                                    <div style="font-weight:500;">@li.ProductName</div>
+                                    @if (!string.IsNullOrEmpty(li.SKU))
+                                    {
+                                        <div style="font-size:11px; color:var(--rz-text-secondary-color);">SKU: @li.SKU</div>
+                                    }
+                                </div>
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Qty"
+                                              Width="65px" TextAlign="TextAlign.Center">
+                            <Template Context="li">@li.Quantity</Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Unit Price"
+                                              Width="130px" TextAlign="TextAlign.Right">
+                            <Template Context="li">
+                                @li.UnitPrice.Amount.ToString("N2") @li.UnitPrice.Currency
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Gross"
+                                              Width="130px" TextAlign="TextAlign.Right">
+                            <Template Context="li">
+                                @li.GrossTotal.Amount.ToString("N2") @li.GrossTotal.Currency
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Adj."
+                                              Width="90px" TextAlign="TextAlign.Center">
+                            <Template Context="li">
+                                @if (li.IsFreeOfCharge)
+                                {
+                                    <RadzenBadge Text="FOC" BadgeStyle="BadgeStyle.Info"
+                                                 title="@li.FocReason" />
+                                }
+                                else if (li.DiscountPercentage > 0)
+                                {
+                                    <span style="color:var(--rz-danger); font-size:12px;">
+                                        −@li.DiscountPercentage.ToString("0.##")%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--rz-text-secondary-color);">—</span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Line Total"
+                                              Width="130px" TextAlign="TextAlign.Right">
+                            <Template Context="li">
+                                <strong>@li.LineTotal.Amount.ToString("N2") @li.LineTotal.Currency</strong>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </div>
+
+        @* Right: financial + address *@
+        <div class="col-lg-4 mb-4">
+
+            <RadzenCard class="mb-4">
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">
+                    Financial Summary
+                </RadzenText>
+                <RadzenStack Gap="0.55rem">
+
+                    @* Subtotal gross *@
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-size:14px;">Subtotal (Gross)</span>
+                        <span style="font-size:14px;">@sale.SubTotal.Amount.ToString("N2") @sale.SubTotal.Currency</span>
+                    </div>
+
+                    @* Line discounts *@
+                    @if (sale.SubTotal.Amount != sale.SubTotalAfterLineDiscounts.Amount)
+                    {
+                        var lineDiff = sale.SubTotal.Amount - sale.SubTotalAfterLineDiscounts.Amount;
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="font-size:14px; color:var(--rz-danger);">Line Discounts</span>
+                            <span style="font-size:14px; color:var(--rz-danger);">−@lineDiff.ToString("N2") @sale.SubTotal.Currency</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="font-size:14px;">Net Subtotal</span>
+                            <span style="font-size:14px;">@sale.SubTotalAfterLineDiscounts.Amount.ToString("N2") @sale.SubTotalAfterLineDiscounts.Currency</span>
+                        </div>
+                        <hr style="border-color:var(--rz-border-color); margin:0.15rem 0;" />
+                    }
+
+                    @* Sale-level discount *@
+                    @if (sale.DiscountPercentage.HasValue && sale.DiscountPercentage > 0)
+                    {
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div style="font-size:14px; color:var(--rz-danger);">
+                                    Sale Discount (@sale.DiscountPercentage.Value.ToString("0.##")%)
+                                </div>
+                                @if (!string.IsNullOrEmpty(sale.DiscountReason))
+                                {
+                                    <div style="font-size:11px; color:var(--rz-text-secondary-color);">
+                                        @sale.DiscountReason
+                                    </div>
+                                }
+                            </div>
+                            <span style="font-size:14px; color:var(--rz-danger); white-space:nowrap;">
+                                −@sale.Discount.Amount.ToString("N2") @sale.Discount.Currency
+                            </span>
+                        </div>
+                        <hr style="border-color:var(--rz-border-color); margin:0.15rem 0;" />
+                    }
+
+                    @* Taxable amount *@
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-size:14px;">Taxable Amount</span>
+                        <span style="font-size:14px;">@sale.TaxableAmount.Amount.ToString("N2") @sale.TaxableAmount.Currency</span>
+                    </div>
+
+                    @* Tax *@
+                    @if (sale.TaxRate.HasValue && sale.TaxRate > 0)
+                    {
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="font-size:14px;">Tax (@sale.TaxRate.Value.ToString("0.##")%)</span>
+                            <span style="font-size:14px;">+@sale.Tax.Amount.ToString("N2") @sale.Tax.Currency</span>
+                        </div>
+                    }
+
+                    @* Total *@
+                    <div style="display:flex; justify-content:space-between; align-items:center;
+                        padding:0.65rem 0.85rem; margin-top:0.35rem;
+                        background:var(--rz-base-background-color);
+                        border-radius:var(--rz-border-radius);
+                        border:1px solid var(--rz-border-color);">
+                        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span">Total</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span">
+                            @sale.Total.Amount.ToString("N2") @sale.Total.Currency
+                        </RadzenText>
+                    </div>
+
+                </RadzenStack>
+            </RadzenCard>
+
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-3">
+                    Shipping Address
+                </RadzenText>
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText TextStyle="TextStyle.Body1">
+                        <strong>@sale.ShippingAddress.Country</strong>
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body2">
+                        @sale.ShippingAddress.City, @sale.ShippingAddress.PostalCode
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body2">@sale.ShippingAddress.Street</RadzenText>
+                    @if (!string.IsNullOrEmpty(sale.ShippingAddress.ExactAddress))
+                    {
+                        <RadzenText TextStyle="TextStyle.Body2" ThemeColor="TextColor.Secondary">
+                            @sale.ShippingAddress.ExactAddress
+                        </RadzenText>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+
+        </div>
+    </div>
+}
+<RadzenNotification />
 
 @code {
-    [Parameter]
-    public Guid Id { get; set; }
+    [Parameter] public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private SaleDto? sale;
+    private bool isLoading = true;
+    private string loadError = string.Empty;
+    private bool isActioning;
+    private bool showCancelForm;
+    private string cancellationReason = string.Empty;
+
+    private bool isAdmin;
+    private bool isManager;
+    private bool isAdminOrManager;
+    private Guid currentUserId;
+    private IReadOnlyList<string> currentUserRoles = Array.Empty<string>();
+
+    // Ordered status steps used by the stepper (Cancelled is not in the flow)
+    private static readonly Dictionary<string, string> StatusSteps = new()
+    {
+        { "Draft",    "Draft"    },
+        { "Pending",  "Pending"  },
+        { "Approved", "Approved" },
+        { "Shipped",  "Shipped"  },
+        { "Invoiced", "Invoiced" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        isAdmin = user.IsInRole("Admin");
+        isManager = user.IsInRole("Manager");
+        isAdminOrManager = isAdmin || isManager;
+        currentUserId = CurrentUser.UserId;
+
+        var roles = new List<string>();
+        if (isAdmin) roles.Add("Admin");
+        if (isManager) roles.Add("Manager");
+        if (user.IsInRole("Employee")) roles.Add("Employee");
+        if (user.IsInRole("ReadOnly")) roles.Add("ReadOnly");
+        currentUserRoles = roles.AsReadOnly();
+
+        await LoadSale();
+    }
+
+    private async Task LoadSale()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+
+        try
+        {
+            var result = await Mediator.Send(new GetSaleByIdQuery
+            {
+                SaleId = Id,
+                RequestedByUserId = currentUserId,
+                UserRoles = currentUserRoles
+            });
+
+            if (result.IsSuccess)
+                sale = result.Value;
+            else
+                loadError = result.Error ?? "Failed to load sale.";
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // ── Workflow handlers ─────────────────────────────────────────────────
+
+    private async Task HandleSubmit()
+    {
+        if (sale is null) return;
+        isActioning = true;
+        try
+        {
+            var result = await Mediator.Send(new SubmitSaleCommand
+            {
+                SaleId = sale.Id,
+                SubmittedByUserId = currentUserId,
+                UserRoles = currentUserRoles
+            });
+            if (result.IsSuccess) { Notify(Radzen.NotificationSeverity.Success, "Submitted", $"{sale.SaleNumber} is now pending review."); await LoadSale(); }
+            else Notify(Radzen.NotificationSeverity.Error, "Submit failed", result.Error!);
+        }
+        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Submit failed", ex.Message); }
+        finally { isActioning = false; }
+    }
+
+    private async Task HandleApprove()
+    {
+        if (sale is null) return;
+        isActioning = true;
+        try
+        {
+            var result = await Mediator.Send(new ApproveSaleCommand
+            {
+                SaleId = sale.Id,
+                ApprovedByUserId = currentUserId,
+                UserRoles = currentUserRoles
+            });
+            if (result.IsSuccess) { Notify(Radzen.NotificationSeverity.Success, "Approved", $"{sale.SaleNumber} has been approved."); await LoadSale(); }
+            else Notify(Radzen.NotificationSeverity.Error, "Approval failed", result.Error!);
+        }
+        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Approval failed", ex.Message); }
+        finally { isActioning = false; }
+    }
+
+    private void HideCancelForm()
+    {
+        showCancelForm = false;
+        cancellationReason = string.Empty;
+    }
+
+    private async Task HandleCancel()
+    {
+        if (sale is null || string.IsNullOrWhiteSpace(cancellationReason)) return;
+        isActioning = true;
+        try
+        {
+            var result = await Mediator.Send(new CancelSaleCommand
+            {
+                SaleId = sale.Id,
+                CancelledByUserId = currentUserId,
+                UserRoles = currentUserRoles,
+                Reason = cancellationReason.Trim()
+            });
+            if (result.IsSuccess)
+            {
+                Notify(Radzen.NotificationSeverity.Success, "Cancelled", $"{sale.SaleNumber} has been cancelled.");
+                HideCancelForm();
+                await LoadSale();
+            }
+            else Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", result.Error!);
+        }
+        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", ex.Message); }
+        finally { isActioning = false; }
+    }
+
+    // ── Permission helpers ────────────────────────────────────────────────
+
+    private bool CanSubmit()
+    {
+        if (sale is null || sale.Status != "Draft") return false;
+        if (!isAdminOrManager && sale.CreatedByUserId != currentUserId) return false;
+        return true;
+    }
+
+    private bool CanApprove() =>
+        sale is not null && sale.Status == "Pending" && isAdminOrManager;
+
+    private bool CanCancel()
+    {
+        if (sale is null) return false;
+        if (sale.Status is "Cancelled" or "Shipped" or "Invoiced") return false;
+        if (isAdmin) return sale.Status is "Draft" or "Pending" or "Approved";
+        if (isManager) return sale.Status is "Draft" or "Pending";
+        return sale.Status == "Draft" && sale.CreatedByUserId == currentUserId;
+    }
+
+    // ── Display helpers ───────────────────────────────────────────────────
+
+    private bool IsStepCompleted(string stepStatus)
+    {
+        if (sale is null) return false;
+        var order = StatusSteps.Keys.ToArray();
+        return Array.IndexOf(order, stepStatus) < Array.IndexOf(order, sale.Status);
+    }
+
+    private DateTime? GetStepTimestamp(string stepStatus) => stepStatus switch
+    {
+        "Draft" => sale?.CreatedAtUtc,
+        "Approved" => sale?.ApprovedAtUtc,
+        "Shipped" => sale?.ShippedAtUtc,
+        _ => null
+    };
+
+    private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
+    {
+        "Draft" => BadgeStyle.Secondary,
+        "Pending" => BadgeStyle.Warning,
+        "Approved" => BadgeStyle.Success,
+        "Shipped" => BadgeStyle.Info,
+        "Invoiced" => BadgeStyle.Primary,
+        "Cancelled" => BadgeStyle.Danger,
+        _ => BadgeStyle.Secondary
+    };
+
+    private void Notify(Radzen.NotificationSeverity severity, string summary, string detail) =>
+        NotificationService.Notify(new Radzen.NotificationMessage
+        {
+            Severity = severity,
+            Summary = summary,
+            Detail = detail,
+            Duration = severity == Radzen.NotificationSeverity.Error ? 6000 : 4000
+        });
 }
