@@ -7,11 +7,20 @@
 
 <RadzenLayout>
     <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                     AlignItems="AlignItems.Center" class="w-100 px-3">
-            <RadzenText TextStyle="TextStyle.H5" TagName="TagName.Span">ERP System</RadzenText>
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
-                <!-- Theme dropdown -->
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     AlignItems="AlignItems.Center"
+                     class="w-100 px-3">
+
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         AlignItems="AlignItems.Center" Gap="0.5rem">
+                @* Hamburger — toggles sidebarExpanded which is bound to RadzenSidebar below *@
+                <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+                <RadzenText TextStyle="TextStyle.H5" TagName="TagName.Span">ERP System</RadzenText>
+            </RadzenStack>
+
+            <RadzenStack Orientation="Orientation.Horizontal"
+                         Gap="0.5rem" AlignItems="AlignItems.Center">
                 <RadzenDropDown TValue="string"
                                 Value="@selectedTheme"
                                 ValueChanged="@ChangeTheme"
@@ -22,12 +31,13 @@
                 <RadzenButton Text="Logout" ButtonStyle="ButtonStyle.Secondary"
                               Size="ButtonSize.Small" Click="Logout" />
             </RadzenStack>
+
         </RadzenStack>
     </RadzenHeader>
 
-    <RadzenSidebar>
+    @* @bind-Expanded wires the sidebar open/closed state to sidebarExpanded *@
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
         <RadzenPanelMenu>
-            @* NavLinkMatch.All = only highlight when URL is exactly this path, not any path that starts with it *@
             <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" Match="NavLinkMatch.All" />
             <RadzenPanelMenuItem Text="Sales" Icon="shopping_cart" Path="/sales" Match="NavLinkMatch.All" />
             <RadzenPanelMenuItem Text="New Sale" Icon="add_shopping_cart" Path="/sales/create" />
@@ -51,11 +61,11 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
 
+    private bool sidebarExpanded = true;
     private string displayName = string.Empty;
     private string roleBadgeText = string.Empty;
     private BadgeStyle roleBadgeStyle = BadgeStyle.Light;
 
-    // Theme dropdown fields
     private string selectedTheme = "standard-dark";
     private readonly List<string> freeThemeList = new()
     {
@@ -94,22 +104,16 @@
         {
             roleBadgeText = "Boss Man (ReadOnly)";
             roleBadgeStyle = BadgeStyle.Info;
-
         }
 
-        // Load saved theme preference
+        // Restore saved theme preference
         try
         {
             var savedTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "radzen_theme");
             if (!string.IsNullOrEmpty(savedTheme) && freeThemeList.Contains(savedTheme))
-            {
                 selectedTheme = savedTheme;
-                ThemeService.SetTheme(selectedTheme);
-            }
-            else
-            {
-                ThemeService.SetTheme(selectedTheme);
-            }
+
+            ThemeService.SetTheme(selectedTheme);
         }
         catch
         {
