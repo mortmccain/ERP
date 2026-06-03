@@ -7,5 +7,10 @@ namespace ERP.Application.Common.Interfaces;
 /// </summary>
 public interface IUnitOfWork
 {
+    Task AddAsync<T>(T entity, CancellationToken cancellationToken = default) where T : class;
+    Task<T?> GetByIdAsync<T>(Guid id, CancellationToken cancellationToken = default) where T : class;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    Task<T?> GetByIdAsync<T>(Guid id,
+        IEnumerable<string>? includes = null,
+        CancellationToken cancellationToken = default) where T : class;
 }

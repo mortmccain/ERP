@@ -17,7 +17,6 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
 {
     private readonly ICustomerRepository _customerRepository;
     private readonly ISaleNumberGenerator _saleNumberGenerator;
-    private readonly ISaleRepository _saleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CreateSaleCommandHandler> _logger;
 
@@ -25,14 +24,12 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         (
         ICustomerRepository customerRepository,
         ISaleNumberGenerator saleNumberGenerator,
-        ISaleRepository saleRepository,
         IUnitOfWork unitOfWork,
         ILogger<CreateSaleCommandHandler> logger
         )
     {
         _customerRepository = customerRepository;
         _saleNumberGenerator = saleNumberGenerator;
-        _saleRepository = saleRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -110,7 +107,7 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         // ------------------------------------------------------------------
         // STEP 5: Persist
         // ------------------------------------------------------------------
-        _saleRepository.Add(sale);
+        await _unitOfWork.AddAsync<Sale>(sale,cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // ------------------------------------------------------------------

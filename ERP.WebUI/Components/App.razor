@@ -8,6 +8,10 @@
     <base href="/" />
  <RadzenTheme theme= "standard-dark"/>
     <HeadOutlet @rendermode="@RenderModeForPage" />
+    <!-- SignalR client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <!-- Our helper module -->
+    <script src="js/notificationHub.js"></script>
 </head>
 <body>
     <Routes @rendermode="@RenderModeForPage" />

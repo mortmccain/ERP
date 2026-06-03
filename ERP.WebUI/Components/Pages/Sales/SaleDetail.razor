@@ -1,5 +1,8 @@
 ﻿@page "/sales/{Id:guid}"
 @attribute [Authorize]
+
+@implements IAsyncDisposable
+
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Sales.Commands.ApproveSale
 @using ERP.Application.Sales.Commands.CancelSale
@@ -9,10 +12,14 @@
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR
+
 @inject ISender Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
+@inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
+@inject IJSRuntime JS
 
 <PageTitle>@(sale is not null ? $"{sale.SaleNumber} — ERP" : "Sale Detail — ERP")</PageTitle>
 
@@ -459,6 +466,9 @@ else if (sale is not null)
         { "Invoiced", "Invoiced" }
     };
 
+    private DotNetObjectReference<object>? _dotNetRef;
+
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask;
@@ -508,7 +518,34 @@ else if (sale is not null)
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create<object>(this);
+            await JS.InvokeVoidAsync("connectToHub", _dotNetRef, "/notificationHub", "OnDataRefresh");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDataRefresh(string dataType)
+    {
+        // Refresh if this exact sale was updated, or general sales/dashboard changes
+        if (dataType == $"SalesDetail-{Id}" || dataType == "SalesList" || dataType == "Dashboard")
+        {
+            await LoadSale();
+            StateHasChanged();
+        }
+    }
+
     // ── Workflow handlers ─────────────────────────────────────────────────
+
+    private async Task BroadcastSaleChange()
+    {
+        await HubContext.Clients.All.SendAsync("RefreshData", $"SalesDetail-{Id}");
+        await HubContext.Clients.All.SendAsync("RefreshData", "SalesList");
+        await HubContext.Clients.All.SendAsync("RefreshData", "Dashboard");
+    }
 
     private async Task HandleSubmit()
     {
@@ -522,10 +559,22 @@ else if (sale is not null)
                 SubmittedByUserId = currentUserId,
                 UserRoles = currentUserRoles
             });
-            if (result.IsSuccess) { Notify(Radzen.NotificationSeverity.Success, "Submitted", $"{sale.SaleNumber} is now pending review."); await LoadSale(); }
+
+            if (result.IsSuccess)
+            {
+                Notify(Radzen.NotificationSeverity.Success, "Submitted", $"{sale.SaleNumber} is now pending review.");
+                await BroadcastSaleChange();
+                await LoadSale();
+            }
+
             else Notify(Radzen.NotificationSeverity.Error, "Submit failed", result.Error!);
+
         }
-        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Submit failed", ex.Message); }
+        catch (Exception ex) 
+        {
+            Notify(Radzen.NotificationSeverity.Error, "Submit failed", ex.Message); 
+        }
+
         finally { isActioning = false; }
     }
 
@@ -541,10 +590,21 @@ else if (sale is not null)
                 ApprovedByUserId = currentUserId,
                 UserRoles = currentUserRoles
             });
-            if (result.IsSuccess) { Notify(Radzen.NotificationSeverity.Success, "Approved", $"{sale.SaleNumber} has been approved."); await LoadSale(); }
+
+            if (result.IsSuccess) 
+            {
+                Notify(Radzen.NotificationSeverity.Success, "Approved", $"{sale.SaleNumber} has been approved.");
+                await BroadcastSaleChange();
+                await LoadSale();
+            }
+
             else Notify(Radzen.NotificationSeverity.Error, "Approval failed", result.Error!);
         }
-        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Approval failed", ex.Message); }
+        catch (Exception ex) 
+        {
+            Notify(Radzen.NotificationSeverity.Error, "Approval failed", ex.Message); 
+        }
+
         finally { isActioning = false; }
     }
 
@@ -567,16 +627,29 @@ else if (sale is not null)
                 UserRoles = currentUserRoles,
                 Reason = cancellationReason.Trim()
             });
+
             if (result.IsSuccess)
             {
                 Notify(Radzen.NotificationSeverity.Success, "Cancelled", $"{sale.SaleNumber} has been cancelled.");
                 HideCancelForm();
+                await BroadcastSaleChange();
                 await LoadSale();
             }
+
             else Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", result.Error!);
         }
-        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", ex.Message); }
+
+        catch (Exception ex) 
+        {
+            Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", ex.Message); 
+        }
+
         finally { isActioning = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
     }
 
     // ── Permission helpers ────────────────────────────────────────────────

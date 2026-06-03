@@ -10,36 +10,44 @@ namespace ERP.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class CustomerRepository : ICustomerRepository
 {
-    private readonly AppDbContext _dbContext;
+    private readonly IDbContextFactory<AppDbContext> _factory;
 
-    public CustomerRepository(AppDbContext dbContext)
+    public CustomerRepository(IDbContextFactory<AppDbContext> factory)
     {
-        _dbContext = dbContext;
+        _factory = factory;
     }
 
     public async Task<Customer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Customers
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        await using var context = await _factory.CreateDbContextAsync();
+
+        return await context.Customers
+        .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task<List<Customer>> GetBySpecificationAsync(
     Specification<Customer> specification,
     CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Customers
+        await using var context = await _factory.CreateDbContextAsync();
+
+        return await context.Customers
             .Where(specification.ToExpression())
             .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Customers
+        await using var context = await _factory.CreateDbContextAsync();
+
+        return await context.Customers
             .AnyAsync(c => c.Id == id, cancellationToken);
     }
 
-    public void Add(Customer customer)
+    public async Task AddAsync(Customer customer, CancellationToken ct)
     {
-        _dbContext.Customers.Add(customer);
+        await using var context = await _factory.CreateDbContextAsync(ct);
+        context.Customers.Add(customer);
+        await context.SaveChangesAsync(ct);
     }
 }

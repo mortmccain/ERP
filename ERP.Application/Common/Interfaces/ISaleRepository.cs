@@ -22,8 +22,8 @@ public interface ISaleRepository
         Specification<Sale> specification,
         CancellationToken cancellationToken = default);
 
-    void Add(Sale sale);
-    void Remove(Sale sale);
+    Task AddAsync(Sale sale, CancellationToken cancellationToken = default);
+    Task RemoveAsync(Sale sale, CancellationToken cancellationToken = default);
 }
 
     /*

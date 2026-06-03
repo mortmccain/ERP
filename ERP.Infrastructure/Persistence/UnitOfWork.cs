@@ -1,6 +1,7 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.SharedKernel.Primitives;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Infrastructure.Persistence;
 
@@ -10,13 +11,25 @@ namespace ERP.Infrastructure.Persistence;
 /// </summary>
 public sealed class UnitOfWork : IUnitOfWork
 {
-    private readonly AppDbContext _dbContext;
-    private readonly IMediator _mediator;
+    private readonly IDbContextFactory<AppDbContext> _factory; private readonly IMediator _mediator;
+    private AppDbContext? _context;   // Created once per UnitOfWork
+    private AppDbContext Context => _context ??= _factory.CreateDbContext();    // what on god's grean earth does ??= mean
 
-    public UnitOfWork(AppDbContext dbContext, IMediator mediator)
+    public UnitOfWork(IDbContextFactory<AppDbContext> factory, IMediator mediator)
     {
-        _dbContext = dbContext;
+        _factory = factory;
         _mediator = mediator;
+    }
+
+
+    public async Task<T?> GetByIdAsync<T>(Guid id, CancellationToken cancellationToken = default) where T : class
+{
+    return await Context.FindAsync<T>(id, cancellationToken);
+}
+
+    public async Task AddAsync<T>(T entity, CancellationToken cancellationToken = default) where T : class
+    {
+        await Context.AddAsync(entity, cancellationToken);
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -27,10 +40,26 @@ public sealed class UnitOfWork : IUnitOfWork
         await DispatchDomainEventsAsync();
 
         // STEP 2: Persist all tracked changes to the database in a single transaction.
-        int result = await _dbContext.SaveChangesAsync(cancellationToken);
-
+        int result = await Context.SaveChangesAsync(cancellationToken);
         return result;
     }
+
+    public async Task<T?> GetByIdAsync<T>(Guid id,
+        IEnumerable<string>? includes = null,
+        CancellationToken cancellationToken = default) where T : class
+    {
+        IQueryable<T> query = Context.Set<T>();
+
+        if (includes is not null)
+        {
+            foreach (var include in includes)
+                query = query.Include(include);
+        }
+
+        return await query.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id, cancellationToken);
+    }
+
+
 
     /// <summary>
     /// Finds all tracked Aggregate Roots that have pending domain events,
@@ -39,7 +68,7 @@ public sealed class UnitOfWork : IUnitOfWork
     private async Task DispatchDomainEventsAsync()
     {
         // Get all tracked Aggregate Roots that have domain events
-        var aggregateRoots = _dbContext.ChangeTracker
+        var aggregateRoots = Context.ChangeTracker
             .Entries<AggregateRoot>()
             .Where(entry => entry.Entity.DomainEvents.Count > 0)    // if any domain events exist,...
             .Select(entry => entry.Entity)
@@ -70,4 +99,9 @@ public sealed class UnitOfWork : IUnitOfWork
             await _mediator.Publish(domainEvent);
         }
     }
+    public void Dispose()
+    {
+        _context?.Dispose();
+    }
+
 }

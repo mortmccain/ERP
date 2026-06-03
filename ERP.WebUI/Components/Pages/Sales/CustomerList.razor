@@ -1,13 +1,20 @@
 ﻿@page "/customers"
 @attribute [Authorize]
+
+@implements IAsyncDisposable
+
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Customers.Commands.CreateCustomer
 @using ERP.Domain.Customers.Entities
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.SignalR
+
 @inject ICustomerRepository CustomerRepository
 @inject ISender Sender
 @inject Radzen.NotificationService NotificationService
+@inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
+@inject IJSRuntime JS
 
 <PageTitle>Customers - ERP</PageTitle>
 
@@ -207,6 +214,7 @@
     private List<string> formErrors = new();
     private bool sameAsBilling;
     private bool isSubmitting;
+    private DotNetObjectReference<object>? _dotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -215,9 +223,30 @@
 
     private async Task LoadCustomers()
     {
-        customers = await CustomerRepository.GetBySpecificationAsync(
+        customers = await CustomerRepository.GetBySpecificationAsync
+        (
             ERP.SharedKernel.Common.Specification<Customer>.Empty,
-            CancellationToken.None);
+            CancellationToken.None
+        );
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create<object>(this);
+            await JS.InvokeVoidAsync("connectToHub", _dotNetRef, "/notificationHub", "OnDataRefresh");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDataRefresh(string dataType)
+    {
+        if (dataType == "Customers" || dataType == "Dashboard")
+        {
+            await LoadCustomers();
+            StateHasChanged();
+        }
     }
 
     private async Task HandleSubmit()
@@ -271,11 +300,16 @@
                     Summary = "Customer created",
                     Detail = $"'{form.Name}' has been added successfully.",
                     Duration = 4000
+
                 });
 
                 form = new CustomerFormModel();
                 sameAsBilling = false;
                 await LoadCustomers();
+
+                // Notify all clients that customers and dashboard have changed
+                await HubContext.Clients.All.SendAsync("RefreshData", "Customers");
+                await HubContext.Clients.All.SendAsync("RefreshData", "Dashboard");
             }
             else
             {
@@ -297,6 +331,14 @@
             isSubmitting = false;
         }
     }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+    }
+
+    // Implement IDisposable / IAsyncDisposable on the class declaration:
+    // public partial class Customers : ComponentBase, IAsyncDisposable
 
     private sealed class CustomerFormModel
     {

@@ -1,4 +1,5 @@
 ﻿using ERP.Application.Common.Interfaces;
+using ERP.Domain.Sales.Entities;
 using ERP.Domain.Sales.Enums;
 using ERP.SharedKernel.Common;
 using MediatR;
@@ -8,16 +9,13 @@ namespace ERP.Application.Sales.Commands.CancelSale;
 
 public sealed class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand, Result>
 {
-    private readonly ISaleRepository _saleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CancelSaleCommandHandler> _logger;
 
     public CancelSaleCommandHandler(
-        ISaleRepository saleRepository,
         IUnitOfWork unitOfWork,
         ILogger<CancelSaleCommandHandler> logger)
     {
-        _saleRepository = saleRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -25,8 +23,7 @@ public sealed class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand
     public async Task<Result> Handle(CancelSaleCommand command, CancellationToken cancellationToken)
     {
         // STEP 1: Load the sale
-        var sale = await _saleRepository.GetByIdAsync(command.SaleId, cancellationToken);
-
+        var sale = await _unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
         if (sale is null)
             return Result.Failure($"Sale '{command.SaleId}' was not found.");
 

@@ -10,16 +10,16 @@ namespace ERP.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class SaleRepository : ISaleRepository
 {
-    private readonly AppDbContext _dbContext;
-
-    public SaleRepository(AppDbContext dbContext)
+    private readonly IDbContextFactory<AppDbContext> _factory;
+    public SaleRepository(IDbContextFactory<AppDbContext> factory)
     {
-        _dbContext = dbContext;
+        _factory = factory;
     }
 
     public async Task<Sale?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Sales
+        await using var context = await _factory.CreateDbContextAsync();
+        return await context.Sales
             .Include(s => s.LineItems)      // eager loading since an aggregate root is incomplete without it's child entities
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
@@ -33,13 +33,14 @@ public sealed class SaleRepository : ISaleRepository
         CancellationToken cancellationToken = default
         )
     {
+        await using var context = await _factory.CreateDbContextAsync();
         // Count total matching records
-        var totalCount = await _dbContext.Sales
+        var totalCount = await context.Sales
             .Where(specification.ToExpression())
             .CountAsync(cancellationToken);
 
         // Fetch the requested page
-        var items = await _dbContext.Sales
+        var items = await context.Sales
             .Include(s => s.LineItems)
             .Where(specification.ToExpression())
             .OrderByDescending(s => s.CreatedAtUtc)
@@ -50,26 +51,34 @@ public sealed class SaleRepository : ISaleRepository
         return new PaginatedResult<Sale>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<List<Sale>> GetAllBySpecificationAsync(
+    public async Task<List<Sale>> GetAllBySpecificationAsync
+        (
     Specification<Sale> specification,
-    CancellationToken cancellationToken = default)
+    CancellationToken cancellationToken = default
+        )
     {
         // No .Include(s => s.LineItems) — dashboard only reads Sale-level aggregate fields.
         // Total, Status, CreatedAtUtc and CreatedByUserId are all on the Sale root itself.
-        return await _dbContext.Sales
-            .Where(specification.ToExpression())
+        await using var context = await _factory.CreateDbContextAsync();
+
+        return await context.Sales
+        .Where(specification.ToExpression())
             .OrderByDescending(s => s.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }
 
-    public void Add(Sale sale)
+    // Write – also uses factory, saves inside the method
+    public async Task AddAsync(Sale sale, CancellationToken ct)
     {
-        // same thing as _dbContext.Add(sale) just more explicit
-        _dbContext.Sales.Add(sale);
+        await using var context = await _factory.CreateDbContextAsync(ct);
+        context.Sales.Add(sale);
+        await context.SaveChangesAsync(ct);
     }
 
-    public void Remove(Sale sale)
+    public async Task RemoveAsync(Sale sale, CancellationToken ct)
     {
-        _dbContext.Sales.Remove(sale);
+        await using var context = await _factory.CreateDbContextAsync(ct);
+        context.Sales.Remove(sale);
+        await context.SaveChangesAsync(ct);
     }
 }

@@ -9,18 +9,15 @@ namespace ERP.Application.Customers.Commands.CreateCustomer;
 
 public sealed class CreateCustomerCommandHandler : IRequestHandler<CreateCustomerCommand, Result<Guid>>
 {
-    private readonly ICustomerRepository _customerRepository;
     private readonly ICustomerCodeGenerator _customerCodeGenerator;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CreateCustomerCommandHandler> _logger;
 
     public CreateCustomerCommandHandler(
-        ICustomerRepository customerRepository,
         ICustomerCodeGenerator customerCodeGenerator,
         IUnitOfWork unitOfWork,
         ILogger<CreateCustomerCommandHandler> logger)
     {
-        _customerRepository = customerRepository;
         _customerCodeGenerator = customerCodeGenerator;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -59,7 +56,7 @@ public sealed class CreateCustomerCommandHandler : IRequestHandler<CreateCustome
             command.IsActive);
 
         // STEP 4: Persist
-        _customerRepository.Add(customer);
+        await _unitOfWork.AddAsync<Customer>(customer,cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // STEP 5: Log and return

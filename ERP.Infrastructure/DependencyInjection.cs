@@ -2,6 +2,7 @@
 using ERP.Infrastructure.Persistence;
 using ERP.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,27 +21,21 @@ public static class DependencyInjection
         )
     {
         // --- Entity Framework Core ---
-        services.AddDbContext<AppDbContext>
-            (
-            options =>
+
+        // --- Entity Framework Core ---
+        // --- Entity Framework Core ---
+        // Scoped factory – each call creates a fresh DbContext, avoids concurrency.
+        services.AddScoped<IDbContextFactory<AppDbContext>>(sp =>
         {
-            options.UseSqlServer
-            (
+            var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+            optionsBuilder.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection"),
                 sqlOptions =>
                 {
                     sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    // Enable retry on transient failures (important for 200+ users)
-                    // Transient failures are temporary database hiccups. Not your fault.
-                    // Not the database's fault. Just shit that happens.
-                    sqlOptions.EnableRetryOnFailure
-                    (
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorNumbersToAdd: null
-                    );
-                }
-            );
+                    sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null);
+                });
+            return new PooledDbContextFactory<AppDbContext>(optionsBuilder.Options);
         });
 
         // --- Repositories ---

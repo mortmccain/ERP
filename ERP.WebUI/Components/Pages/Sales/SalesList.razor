@@ -1,5 +1,8 @@
 ﻿@page "/sales"
 @attribute [Authorize]
+
+@implements IAsyncDisposable
+
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Sales.Commands.CancelSale
 @using ERP.Application.Sales.DTOs
@@ -7,10 +10,14 @@
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR
+
 @inject ISender Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
+@inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
+@inject IJSRuntime JS
 
 <PageTitle>Sales - ERP</PageTitle>
 
@@ -148,6 +155,9 @@
     private string cancellationReason = string.Empty;
     private bool isCancelling;
 
+    private DotNetObjectReference<object>? _dotNetRef;
+
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask;
@@ -187,6 +197,25 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create<object>(this);
+            await JS.InvokeVoidAsync("connectToHub", _dotNetRef, "/notificationHub", "OnDataRefresh");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDataRefresh(string dataType)
+    {
+        if (dataType == "SalesList" || dataType == "Dashboard")
+        {
+            await LoadSales();
+            StateHasChanged();
         }
     }
 
@@ -237,6 +266,8 @@
                 pendingCancel = null;
                 cancellationReason = string.Empty;
                 await LoadSales();
+                await HubContext.Clients.All.SendAsync("RefreshData", "SalesList");
+                await HubContext.Clients.All.SendAsync("RefreshData", "Dashboard");
             }
             else
             {
@@ -297,4 +328,11 @@
         "Cancelled" => BadgeStyle.Danger,
         _ => BadgeStyle.Secondary
     };
+
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+    }
+    // Change class declaration: public partial class Sales : ComponentBase, IAsyncDisposable
 }

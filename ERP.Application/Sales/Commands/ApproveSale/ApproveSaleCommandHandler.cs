@@ -1,4 +1,5 @@
 ﻿using ERP.Application.Common.Interfaces;
+using ERP.Domain.Sales.Entities;
 using ERP.SharedKernel.Common;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -7,23 +8,22 @@ namespace ERP.Application.Sales.Commands.ApproveSale;
 
 public sealed class ApproveSaleCommandHandler : IRequestHandler<ApproveSaleCommand, Result>
 {
-    private readonly ISaleRepository _saleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ApproveSaleCommandHandler> _logger;
 
-    public ApproveSaleCommandHandler(
-        ISaleRepository saleRepository,
+    public ApproveSaleCommandHandler
+        (
         IUnitOfWork unitOfWork,
-        ILogger<ApproveSaleCommandHandler> logger)
+        ILogger<ApproveSaleCommandHandler> logger
+        )
     {
-        _saleRepository = saleRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
     public async Task<Result> Handle(ApproveSaleCommand command, CancellationToken cancellationToken)
     {
-        var sale = await _saleRepository.GetByIdAsync(command.SaleId, cancellationToken);
+        var sale = await _unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
 
         if (sale is null)
             return Result.Failure($"Sale '{command.SaleId}' was not found.");

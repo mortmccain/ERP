@@ -1,15 +1,22 @@
 ﻿@page "/sales/create"
 @attribute [Authorize(Roles = "Admin,Manager,Employee")]
+
+
+
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Sales.Commands.CreateSale
 @using ERP.Domain.Customers.Entities
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.SignalR
+
 @inject ISender Mediator
 @inject ICustomerRepository CustomerRepository
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
+@inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
+@inject IJSRuntime JS
 
 <PageTitle>Create Sale - ERP</PageTitle>
 
@@ -276,6 +283,8 @@
                 model = new CreateSaleModel();
                 formErrors.Clear();
                 await lineItemsGrid.Reload();
+                await HubContext.Clients.All.SendAsync("RefreshData", "SalesList");
+                await HubContext.Clients.All.SendAsync("RefreshData", "Dashboard");
                 // Navigation.NavigateTo("/sales");
             }
             else

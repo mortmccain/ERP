@@ -6,6 +6,7 @@ using ERP.WebUI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Radzen;
+using ERP.WebUI.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,6 +79,8 @@ builder.Services.AddRadzenComponents();
 // --- Current User Service (Blazor-specific) ---
 builder.Services.AddScoped<ERP.Application.Common.Interfaces.ICurrentUserService, BlazorCurrentUserService>();
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 // ==================================================================================================================================
@@ -101,6 +104,8 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<ERP.WebUI.Components.App>()
     .AddInteractiveServerRenderMode();                  // this adds the signalR stuff
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 // Seed default roles and admin user for the first time (if not available)
 using (var scope = app.Services.CreateScope())
