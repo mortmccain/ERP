@@ -1,14 +1,20 @@
 ﻿@page "/"
 @attribute [Authorize]
+
+@implements IAsyncDisposable
+
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Dashboard.DTOs
 @using ERP.Application.Dashboard.Queries.GetDashboardStats
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+
 @inject ISender Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+
 <PageTitle>Dashboard - ERP</PageTitle>
 
 <HeadContent>
@@ -45,6 +51,11 @@
                     transform: scale(1.03);
                     box-shadow: 0 12px 2px rgba(49, 45, 47, 0.8);
                 }
+
+
+            .status-chart .rz-legend-bottom {
+                bottom: -50px !important;
+            }
     </style>
 </HeadContent>
 
@@ -298,19 +309,19 @@ else if (stats is not null)
         <RadzenColumn Size="12" SizeLG="3">
             <RadzenStack Gap="3">
                 @* Sales by Status Donut (Top) *@
-                <RadzenCard style="height: 360px;">
+                <RadzenCard style="height: 400px;">
                     <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H5" class="mb-0">
                         Sales by Status
                     </RadzenText>
                     <RadzenText TextStyle="TextStyle.Caption" ThemeColor="TextColor.Secondary"
-                                style="display: block; margin-bottom: 0.5rem;">
+                                style="display: block;">
                         Current breakdown — all time
                     </RadzenText>
                     @if (!stats.StatusBreakdown.Any())
                     {
                         <RadzenStack AlignItems="AlignItems.Center"
                                      JustifyContent="JustifyContent.Center"
-                                     style="height: 260px;" Gap="0.5rem">
+                                     style="height: 400px;" Gap="0.5rem">
                             <RadzenIcon Icon="pie_chart"
                                         style="font-size: 3rem; color: var(--rz-text-secondary-color);" />
                             <RadzenText ThemeColor="TextColor.Secondary">No sales yet</RadzenText>
@@ -318,7 +329,8 @@ else if (stats is not null)
                     }
                     else
                     {
-                        <RadzenChart style="height: 270px;">
+                        <RadzenChart class="status-chart"
+                            style="height: 260px;">
                             <RadzenDonutSeries Data="@stats.StatusBreakdown"
                                                Title="Count"
                                                CategoryProperty="Status"
@@ -401,6 +413,8 @@ else if (stats is not null)
     private Guid currentUserId;
     private IReadOnlyList<string> currentUserRoles = Array.Empty<string>();
 
+    private DotNetObjectReference<object>? _dotNetRef;
+
     // Fixed titles for Radzen chart components
     private string YearlyRevenueTitle => stats is not null ? $"Revenue ({stats.Currency})" : "Revenue";
     private string MonthlyRevenueTitle => stats is not null ? $"Revenue ({stats.Currency})" : "Revenue";
@@ -461,4 +475,29 @@ else if (stats is not null)
         if (amount >= 1_000m) return $"{amount / 1_000m:F1}K";
         return amount.ToString("N0");
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create<object>(this);
+            await JS.InvokeVoidAsync("connectToHub", _dotNetRef, "/notificationHub", "OnDataRefresh");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDataRefresh(string dataType)
+    {
+        if (dataType == "Dashboard")
+        {
+            await LoadStats();
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+    }
+
 }

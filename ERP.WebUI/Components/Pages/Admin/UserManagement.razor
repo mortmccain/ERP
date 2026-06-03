@@ -1,15 +1,21 @@
 ﻿@page "/admin/users"
 @attribute [Authorize(Roles = "Admin,Manager")]
 
+@implements IAsyncDisposable
+
+
 @using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.SignalR
 
 @inject UserManager<IdentityUser<Guid>> UserManager
 @inject Radzen.NotificationService NotificationService
 @inject Radzen.DialogService DialogService
+@inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
+@inject IJSRuntime JS
 
 <PageTitle>User Management - ERP</PageTitle>
 
@@ -122,6 +128,8 @@
     private bool isAdmin;
     private bool isManager;
 
+    private DotNetObjectReference<object>? _dotNetRef;
+
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateTask;
@@ -220,6 +228,7 @@
         });
         newUser = new();
         await LoadUsers();
+        await HubContext.Clients.All.SendAsync("RefreshData", "Users");
     }
 
     private async Task ConfirmDelete(IdentityUser<Guid> user)
@@ -267,7 +276,33 @@
         if (result.Succeeded)
         {
             await LoadUsers();
+            await HubContext.Clients.All.SendAsync("RefreshData", "Users");
+
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create<object>(this);
+            await JS.InvokeVoidAsync("connectToHub", _dotNetRef, "/notificationHub", "OnDataRefresh");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDataRefresh(string dataType)
+    {
+        if (dataType == "Users")
+        {
+            await LoadUsers();
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
     }
 
     private class CreateUserModel
