@@ -28,6 +28,6 @@ public sealed class CreateSaleCommand : IRequest<Result<Guid>>
         public string? SKU { get; init; }
         public int Quantity { get; init; }
         public decimal UnitPriceAmount { get; init; }
-        public string Currency { get; init; } = "IRI";
+        public string Currency { get; init; } = "IRR";
     }
 }

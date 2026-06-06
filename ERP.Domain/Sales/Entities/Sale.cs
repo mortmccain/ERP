@@ -133,12 +133,12 @@ public sealed class Sale : AggregateRoot
         CreatedByName = createdByName;
 
         Status = SaleStatus.Draft;
-        SubTotal = Money.Zero("IRI"); // Default currency. Can be made configurable.
-        SubTotalAfterLineDiscounts = Money.Zero("IRI");
-        Discount = Money.Zero("IRI");
-        TaxableAmount = Money.Zero("IRI");
-        Tax = Money.Zero("IRI");
-        Total = Money.Zero("IRI");
+        SubTotal = Money.Zero("IRR"); // Default currency. Can be made configurable.
+        SubTotalAfterLineDiscounts = Money.Zero("IRR");
+        Discount = Money.Zero("IRR");
+        TaxableAmount = Money.Zero("IRR");
+        Tax = Money.Zero("IRR");
+        Total = Money.Zero("IRR");
         CreatedAtUtc = DateTime.UtcNow;
 
     }
@@ -389,7 +389,7 @@ public sealed class Sale : AggregateRoot
     {
         if (_lineItems.Count == 0)
         {
-            SubTotal = Money.Zero("IRI");
+            SubTotal = Money.Zero("IRR");
         }
         else
         {

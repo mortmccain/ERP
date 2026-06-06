@@ -167,7 +167,7 @@
                     <RadzenText TextStyle="TextStyle.H6">
                         Grand Total:&nbsp;
                         <strong>
-                            @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N2") IRI
+                            @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N2") IRR
                         </strong>
                     </RadzenText>
                 </RadzenStack>
@@ -186,7 +186,6 @@
         </RadzenStack>
     </div>
 </div>
-<RadzenNotification />
 
 @code {
     private RadzenDataGrid<LineItemModel> lineItemsGrid = default!;
@@ -265,7 +264,7 @@
                     SKU = null,
                     Quantity = li.Quantity,
                     UnitPriceAmount = li.UnitPrice,
-                    Currency = "IRI"
+                    Currency = "IRR"
                 }).ToList()
             };
 
@@ -307,7 +306,12 @@
         }
     }
 
-    private void Cancel() => Navigation.NavigateTo("/sales");
+    private void Cancel()
+    {
+        model = new CreateSaleModel();   // Reset everything (customer + line items)
+                                         // The grid data binding will automatically show an empty list.
+                                         // No need to call lineItemsGrid.Reload() unless the grid doesn't update.
+    }
 
     // ── View models ──────────────────────────────────────────────────────────
 

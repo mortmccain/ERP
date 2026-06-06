@@ -10,7 +10,7 @@ public sealed class DashboardStatsDto
     public int CancelledSalesCount { get; init; }
     public int ActiveCustomersCount { get; init; }
     public decimal TotalRevenue { get; init; }
-    public string Currency { get; init; } = "IRI";
+    public string Currency { get; init; } = "IRR";
 
     // ── Chart data ───────────────────────────────────────────────────────
     /// <summary>One entry per year for the last 5 calendar years.</summary>

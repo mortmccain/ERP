@@ -172,6 +172,7 @@
                             AllowSorting="true"
                             AllowFiltering="true"
                             FilterMode="FilterMode.SimpleWithMenu"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                             AllowPaging="true"
                             PageSize="10"
                             Style="height: auto;">
@@ -206,7 +207,6 @@
         </RadzenCard>
     </div>
 </div>
-<RadzenNotification />
 
 @code {
     private List<Customer> customers = new();

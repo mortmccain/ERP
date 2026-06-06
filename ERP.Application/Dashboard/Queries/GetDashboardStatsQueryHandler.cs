@@ -59,7 +59,7 @@ public sealed class GetDashboardStatsQueryHandler
             TotalRevenue = allSales
                 .Where(s => s.Status != SaleStatus.Cancelled)
                 .Sum(s => s.Total.Amount),
-            Currency = "IRI",
+            Currency = "IRR",
 
             // ── 5-year data (pie + column charts) ────────────────────────
             YearlyData = Enumerable.Range(firstYear, 5)

@@ -63,11 +63,14 @@
 }
 
 @* ── Sales grid ─────────────────────────────────────────────────────── *@
-<RadzenDataGrid Data="@sales"
+<RadzenDataGrid
+    @ref="grid"
+    Data="@sales"
                 TItem="SaleListItemDto"
                 AllowSorting="true"
                 AllowFiltering="true"
                 FilterMode="FilterMode.SimpleWithMenu"
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                 AllowPaging="true"
                 PageSize="20"
                 IsLoading="@isLoading"
@@ -81,11 +84,45 @@
         <RadzenDataGridColumn TItem="SaleListItemDto" Property="CustomerName"
                               Title="Customer" />
 
-        <RadzenDataGridColumn TItem="SaleListItemDto" Property="Status"
-                              Title="Status" Width="120px" TextAlign="TextAlign.Center">
+        <RadzenDataGridColumn TItem="SaleListItemDto"
+                              Property="Status"
+                              Title="Status"
+                              Width="140px"
+                              TextAlign="TextAlign.Center"
+                              FilterOperator="FilterOperator.Equals">
+
             <Template Context="sale">
                 <RadzenBadge Text="@sale.Status" BadgeStyle="@GetStatusBadgeStyle(sale.Status)" />
             </Template>
+
+            <FilterTemplate Context="column">
+                <RadzenDropDown @bind-Value="@selectedStatusFilter"
+                                Data="@statusFilterOptions"
+                                TValue="string"
+                                Style="width: 100%; min-width: 130px;"
+                                AllowClear="true"
+                                Placeholder="All statuses"
+                                Change="@(args => OnStatusFilterChanged(selectedStatusFilter, column))">
+                    @* Shows the selected status as a colored badge *@
+                    <ValueTemplate Context="selectedStatus">
+                        @if (!string.IsNullOrEmpty(selectedStatus?.ToString()))
+                        {
+                            <RadzenBadge Text="@selectedStatus.ToString()"
+                                         BadgeStyle="@GetStatusBadgeStyle(selectedStatus.ToString())" />
+                        }
+                        else
+                        {
+                            <span>All statuses</span>
+                        }
+                    </ValueTemplate>
+                    @* Colored badges for each dropdown option *@
+                    <Template Context="statusOption">
+                        <RadzenBadge Text="@statusOption"
+                                     BadgeStyle="@GetStatusBadgeStyle(statusOption)" />
+                    </Template>
+                </RadzenDropDown>
+            </FilterTemplate>
+
         </RadzenDataGridColumn>
 
         <RadzenDataGridColumn TItem="SaleListItemDto" Property="Total.Amount"
@@ -134,7 +171,6 @@
 
     </Columns>
 </RadzenDataGrid>
-<RadzenNotification />
 
 @code {
     [CascadingParameter]
@@ -335,4 +371,48 @@
         _dotNetRef?.Dispose();
     }
     // Change class declaration: public partial class Sales : ComponentBase, IAsyncDisposable
+
+
+
+
+
+
+
+
+
+    private RadzenDataGrid<SaleListItemDto> grid = default!;
+    private string? selectedStatusFilter;
+
+    private readonly List<string> statusFilterOptions = new()
+    {
+        "Draft", "Pending", "Approved", "Shipped", "Invoiced", "Cancelled"
+    };
+
+    private async Task OnStatusFilterChanged(string? value, RadzenDataGridColumn<SaleListItemDto> column)
+    {
+        selectedStatusFilter = value;
+
+        if (string.IsNullOrEmpty(value))
+        {
+            column.FilterValue = null;
+        }
+        else
+        {
+            column.FilterValue = value;
+            column.FilterOperator = FilterOperator.Equals;
+        }
+
+        await grid.Reload();
+    }
+
+    // Optional: Clear filter helper
+    private async Task ClearStatusFilter(RadzenDataGridColumn<SaleListItemDto> column)
+    {
+        selectedStatusFilter = null;
+        column.FilterValue = null;
+        await grid.Reload();
+    }
+
+
+
 }
