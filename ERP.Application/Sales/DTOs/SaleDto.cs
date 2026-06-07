@@ -30,9 +30,11 @@ public sealed class SaleDto
 
     // --- Timestamps ---
     public DateTime CreatedAtUtc { get; init; }
+    public DateTime? SubmittedAtUtc { get; init; }
     public DateTime? ApprovedAtUtc { get; init; }
     public Guid? ApprovedByUserId { get; init; }
     public DateTime? ShippedAtUtc { get; init; }
+    public DateTime? InvoicedAtUtc { get; init; }
     public DateTime? CancelledAtUtc { get; init; }
     public string? CancellationReason { get; init; }
 

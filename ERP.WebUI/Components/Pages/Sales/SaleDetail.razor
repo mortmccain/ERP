@@ -7,6 +7,8 @@
 @using ERP.Application.Sales.Commands.ApproveSale
 @using ERP.Application.Sales.Commands.CancelSale
 @using ERP.Application.Sales.Commands.SubmitSale
+@using ERP.Application.Sales.Commands.MarkAsShipped
+@using ERP.Application.Sales.Commands.MarkAsInvoiced
 @using ERP.Application.Sales.DTOs
 @using ERP.Application.Sales.Queries.GetSaleById
 @using MediatR
@@ -20,6 +22,7 @@
 @inject Radzen.NotificationService NotificationService
 @inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
 @inject IJSRuntime JS
+@inject Radzen.DialogService DialogService
 
 <PageTitle>@(sale is not null ? $"{sale.SaleNumber} — ERP" : "Sale Detail — ERP")</PageTitle>
 
@@ -87,6 +90,18 @@ else if (sale is not null)
                 <RadzenButton Text="Approve Sale" Icon="check_circle"
                               ButtonStyle="ButtonStyle.Success"
                               Click="HandleApprove" Disabled="@isActioning" />
+            }
+            @if (CanShip())
+            {
+                <RadzenButton Text="Mark as Shipped" Icon="local_shipping"
+                              ButtonStyle="ButtonStyle.Info"
+                              Click="HandleMarkAsShipped" Disabled="@isActioning" />
+            }
+            @if (CanInvoice())
+            {
+                <RadzenButton Text="Mark as Invoiced" Icon="receipt"
+                              ButtonStyle="ButtonStyle.Primary"
+                              Click="HandleMarkAsInvoiced" Disabled="@isActioning" />
             }
             @if (CanCancel() && !showCancelForm)
             {
@@ -164,6 +179,7 @@ else if (sale is not null)
     }
 
     @* CANCEL FORM *@
+    @* CANCEL FORM *@
     @if (showCancelForm)
     {
         <RadzenCard class="mb-4" style="border-left:4px solid var(--rz-danger);">
@@ -178,14 +194,18 @@ else if (sale is not null)
                 </RadzenStack>
                 <div>
                     <RadzenLabel Text="Cancellation reason *" />
-                    <RadzenTextArea @bind-Value="cancellationReason"
-                                    Placeholder="Provide a clear, specific reason. Mandatory for all roles and recorded permanently."
-                                    Rows="3" Style="width:100%;" />
+                    <textarea @bind="cancellationReason"
+                              @bind:event="oninput"
+                              class="rz-textarea rz-inputtext"
+                              rows="3"
+                              placeholder="Provide a clear, specific reason. Mandatory for all roles and recorded permanently."
+                              style="width:100%; padding:0.5rem; font-family:inherit; font-size:0.875rem;">
+                </textarea>
                 </div>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                     <RadzenButton Text="@(isActioning ? "Cancelling…" : "Confirm Cancellation")"
                                   ButtonStyle="ButtonStyle.Danger" Icon="cancel"
-                                  Click="HandleCancel"
+                                  Click="ShowCancelConfirmation"
                                   Disabled="@(string.IsNullOrWhiteSpace(cancellationReason) || isActioning)" />
                     <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Secondary"
                                   Click="HideCancelForm" Disabled="@isActioning" />
@@ -286,14 +306,14 @@ else if (sale is not null)
                         <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Unit Price"
                                               Width="130px" TextAlign="TextAlign.Right">
                             <Template Context="li">
-                                @li.UnitPrice.Amount.ToString("N2") @li.UnitPrice.Currency
+                                @li.UnitPrice.Amount.ToString("N0") @li.UnitPrice.Currency
                             </Template>
                         </RadzenDataGridColumn>
 
                         <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Gross"
                                               Width="130px" TextAlign="TextAlign.Right">
                             <Template Context="li">
-                                @li.GrossTotal.Amount.ToString("N2") @li.GrossTotal.Currency
+                                @li.GrossTotal.Amount.ToString("N0") @li.GrossTotal.Currency
                             </Template>
                         </RadzenDataGridColumn>
 
@@ -308,7 +328,7 @@ else if (sale is not null)
                                 else if (li.DiscountPercentage > 0)
                                 {
                                     <span style="color:var(--rz-danger); font-size:12px;">
-                                        −@li.DiscountPercentage.ToString("0.##")%
+                                        −@li.DiscountPercentage.ToString()%
                                     </span>
                                 }
                                 else
@@ -321,7 +341,7 @@ else if (sale is not null)
                         <RadzenDataGridColumn TItem="SaleLineItemDto" Title="Line Total"
                                               Width="130px" TextAlign="TextAlign.Right">
                             <Template Context="li">
-                                <strong>@li.LineTotal.Amount.ToString("N2") @li.LineTotal.Currency</strong>
+                                <strong>@li.LineTotal.Amount.ToString("N0") @li.LineTotal.Currency</strong>
                             </Template>
                         </RadzenDataGridColumn>
                     </Columns>
@@ -341,7 +361,7 @@ else if (sale is not null)
                     @* Subtotal gross *@
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-size:14px;">Subtotal (Gross)</span>
-                        <span style="font-size:14px;">@sale.SubTotal.Amount.ToString("N2") @sale.SubTotal.Currency</span>
+                        <span style="font-size:14px;">@sale.SubTotal.Amount.ToString() @sale.SubTotal.Currency</span>
                     </div>
 
                     @* Line discounts *@
@@ -350,11 +370,11 @@ else if (sale is not null)
                         var lineDiff = sale.SubTotal.Amount - sale.SubTotalAfterLineDiscounts.Amount;
                         <div style="display:flex; justify-content:space-between;">
                             <span style="font-size:14px; color:var(--rz-danger);">Line Discounts</span>
-                            <span style="font-size:14px; color:var(--rz-danger);">−@lineDiff.ToString("N2") @sale.SubTotal.Currency</span>
+                            <span style="font-size:14px; color:var(--rz-danger);">−@lineDiff.ToString() @sale.SubTotal.Currency</span>
                         </div>
                         <div style="display:flex; justify-content:space-between;">
                             <span style="font-size:14px;">Net Subtotal</span>
-                            <span style="font-size:14px;">@sale.SubTotalAfterLineDiscounts.Amount.ToString("N2") @sale.SubTotalAfterLineDiscounts.Currency</span>
+                            <span style="font-size:14px;">@sale.SubTotalAfterLineDiscounts.Amount.ToString("N0") @sale.SubTotalAfterLineDiscounts.Currency</span>
                         </div>
                         <hr style="border-color:var(--rz-border-color); margin:0.15rem 0;" />
                     }
@@ -365,7 +385,7 @@ else if (sale is not null)
                         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                             <div>
                                 <div style="font-size:14px; color:var(--rz-danger);">
-                                    Sale Discount (@sale.DiscountPercentage.Value.ToString("0.##")%)
+                                    Sale Discount (@sale.DiscountPercentage.Value.ToString()%)
                                 </div>
                                 @if (!string.IsNullOrEmpty(sale.DiscountReason))
                                 {
@@ -375,7 +395,7 @@ else if (sale is not null)
                                 }
                             </div>
                             <span style="font-size:14px; color:var(--rz-danger); white-space:nowrap;">
-                                −@sale.Discount.Amount.ToString("N2") @sale.Discount.Currency
+                                −@sale.Discount.Amount.ToString("N0") @sale.Discount.Currency
                             </span>
                         </div>
                         <hr style="border-color:var(--rz-border-color); margin:0.15rem 0;" />
@@ -384,15 +404,15 @@ else if (sale is not null)
                     @* Taxable amount *@
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-size:14px;">Taxable Amount</span>
-                        <span style="font-size:14px;">@sale.TaxableAmount.Amount.ToString("N2") @sale.TaxableAmount.Currency</span>
+                        <span style="font-size:14px;">@sale.TaxableAmount.Amount.ToString("N0") @sale.TaxableAmount.Currency</span>
                     </div>
 
                     @* Tax *@
                     @if (sale.TaxRate.HasValue && sale.TaxRate > 0)
                     {
                         <div style="display:flex; justify-content:space-between;">
-                            <span style="font-size:14px;">Tax (@sale.TaxRate.Value.ToString("0.##")%)</span>
-                            <span style="font-size:14px;">+@sale.Tax.Amount.ToString("N2") @sale.Tax.Currency</span>
+                            <span style="font-size:14px;">Tax (@sale.TaxRate.Value.ToString()%)</span>
+                            <span style="font-size:14px;">+@sale.Tax.Amount.ToString("N0") @sale.Tax.Currency</span>
                         </div>
                     }
 
@@ -404,7 +424,7 @@ else if (sale is not null)
                         border:1px solid var(--rz-border-color);">
                         <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span">Total</RadzenText>
                         <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span">
-                            @sale.Total.Amount.ToString("N2") @sale.Total.Currency
+                            @sale.Total.Amount.ToString("N0") @sale.Total.Currency
                         </RadzenText>
                     </div>
 
@@ -613,9 +633,32 @@ else if (sale is not null)
         cancellationReason = string.Empty;
     }
 
-    private async Task HandleCancel()
+    // Shows the confirmation dialog with 3‑second countdown
+    private async Task ShowCancelConfirmation()
     {
-        if (sale is null || string.IsNullOrWhiteSpace(cancellationReason)) return;
+        if (sale is null || string.IsNullOrWhiteSpace(cancellationReason))
+            return;
+
+        if (isActioning) return;
+
+        var confirmed = await DialogService.OpenAsync<CancelConfirmationDialog>(
+            "Confirm Cancellation",
+            new Dictionary<string, object> { { "SaleNumber", sale.SaleNumber } },
+            new Radzen.DialogOptions { Width = "420px", Resizable = false, Draggable = true }
+        );
+
+        if (confirmed == true)
+        {
+            await ExecuteCancellation();
+        }
+    }
+
+    // Actual cancellation logic (renamed from HandleCancel)
+    private async Task ExecuteCancellation()
+    {
+        if (sale is null || string.IsNullOrWhiteSpace(cancellationReason))
+            return;
+
         isActioning = true;
         try
         {
@@ -634,15 +677,66 @@ else if (sale is not null)
                 await BroadcastSaleChange();
                 await LoadSale();
             }
-
-            else Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", result.Error!);
+            else
+            {
+                Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", result.Error!);
+            }
         }
-
-        catch (Exception ex) 
+        catch (Exception ex)
         {
-            Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", ex.Message); 
+            Notify(Radzen.NotificationSeverity.Error, "Cancellation failed", ex.Message);
         }
+        finally
+        {
+            isActioning = false;
+        }
+    }
 
+    private async Task HandleMarkAsShipped()
+    {
+        if (sale is null) return;
+        isActioning = true;
+        try
+        {
+            var result = await Mediator.Send(new MarkAsShippedCommand
+            {
+                SaleId = sale.Id,
+                MarkedByUserId = currentUserId,
+                UserRoles = currentUserRoles
+            });
+            if (result.IsSuccess)
+            {
+                Notify(Radzen.NotificationSeverity.Success, "Shipped", $"{sale.SaleNumber} has been marked as shipped.");
+                await BroadcastSaleChange();
+                await LoadSale();
+            }
+            else Notify(Radzen.NotificationSeverity.Error, "Failed", result.Error!);
+        }
+        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Failed", ex.Message); }
+        finally { isActioning = false; }
+    }
+
+    private async Task HandleMarkAsInvoiced()
+    {
+        if (sale is null) return;
+        isActioning = true;
+        try
+        {
+            var result = await Mediator.Send(new MarkAsInvoicedCommand
+            {
+                SaleId = sale.Id,
+                MarkedByUserId = currentUserId,
+                UserRoles = currentUserRoles
+            });
+            if (result.IsSuccess)
+            {
+                Notify(Radzen.NotificationSeverity.Success, "Invoiced", $"{sale.SaleNumber} has been marked as invoiced.");
+                await BroadcastSaleChange();
+                await LoadSale();
+            }
+            else Notify(Radzen.NotificationSeverity.Error, "Failed", result.Error!);
+        }
+        catch (Exception ex) { Notify(Radzen.NotificationSeverity.Error, "Failed", ex.Message); }
         finally { isActioning = false; }
     }
 
@@ -672,6 +766,10 @@ else if (sale is not null)
         return sale.Status == "Draft" && sale.CreatedByUserId == currentUserId;
     }
 
+    private bool CanShip() => sale is not null && sale.Status == "Approved" && isAdminOrManager;
+
+    private bool CanInvoice() => sale is not null && sale.Status == "Shipped" && isAdminOrManager;
+
     // ── Display helpers ───────────────────────────────────────────────────
 
     private bool IsStepCompleted(string stepStatus)
@@ -684,8 +782,10 @@ else if (sale is not null)
     private DateTime? GetStepTimestamp(string stepStatus) => stepStatus switch
     {
         "Draft" => sale?.CreatedAtUtc,
+        "Pending" => sale?.SubmittedAtUtc,
         "Approved" => sale?.ApprovedAtUtc,
         "Shipped" => sale?.ShippedAtUtc,
+        "Invoiced" => sale?.InvoicedAtUtc,
         _ => null
     };
 

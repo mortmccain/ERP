@@ -46,6 +46,7 @@ public sealed class GetSaleByIdQueryHandler : IRequestHandler<GetSaleByIdQuery, 
                 City = sale.ShippingAddress.City,
                 PostalCode = sale.ShippingAddress.PostalCode,
                 ExactAddress = sale.ShippingAddress.ExactAddress
+
             },
 
             SubTotal = new MoneyDto { Amount = sale.SubTotal.Amount, Currency = sale.SubTotal.Currency },
@@ -83,7 +84,10 @@ public sealed class GetSaleByIdQueryHandler : IRequestHandler<GetSaleByIdQuery, 
                     FocReason = li.FocReason,
                     LineTotal = new MoneyDto { Amount = li.LineTotal.Amount, Currency = li.LineTotal.Currency },
                     LineNumber = li.LineNumber
-                }).ToList()
+                }).ToList(),
+
+            SubmittedAtUtc = sale.SubmittedAtUtc,
+            InvoicedAtUtc = sale.InvoicedAtUtc,
         };
 
         return Result<SaleDto>.Success(dto);

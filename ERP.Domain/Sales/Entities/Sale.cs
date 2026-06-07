@@ -72,9 +72,11 @@ public sealed class Sale : AggregateRoot
     // these aren't set as the object gets created so init doesn't work for them.
     // anything that doesn't get initialized in the constructor 
     // shouldn't use init because init means only during object creation 
+    public DateTime? SubmittedAtUtc { get; private set; }
     public DateTime? ApprovedAtUtc { get; private set; }
     public Guid? ApprovedByUserId { get; private set; }
     public DateTime? ShippedAtUtc { get; private set; }
+    public DateTime? InvoicedAtUtc { get; private set; }
     public DateTime? CancelledAtUtc { get; private set; }
     public string? CancellationReason { get; private set; }
 
@@ -678,6 +680,7 @@ public sealed class Sale : AggregateRoot
         EnsureTotalIsPositive();
 
         Status = SaleStatus.Pending;
+        SubmittedAtUtc = DateTime.UtcNow;
         AddDomainEvent(new SaleSubmittedDomainEvent(Id, Total));
     }
 
@@ -739,7 +742,7 @@ public sealed class Sale : AggregateRoot
         EnsureShipped();
 
         Status = SaleStatus.Invoiced;
-
+        InvoicedAtUtc = DateTime.UtcNow;
         AddDomainEvent(new SaleInvoicedDomainEvent(Id));
     }
 }

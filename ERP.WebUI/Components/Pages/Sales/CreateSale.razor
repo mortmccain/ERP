@@ -133,16 +133,16 @@
                             <RadzenNumeric TValue="decimal"
                                            @bind-Value="@item.UnitPrice"
                                            Min="0"
-                                           Format="N2"
+                                           Format="N0"
                                            Style="width: 100%;" />
                         </Template>
                     </RadzenDataGridColumn>
 
-                    <RadzenDataGridColumn TItem="LineItemModel" Title="Line Total" Width="130px"
+                    <RadzenDataGridColumn TItem="LineItemModel" Title="Line Total" Width="134px"
                                           TextAlign="TextAlign.Right">
                         <Template Context="item">
                             <span style="font-weight: 500;">
-                                @((item.Quantity * item.UnitPrice).ToString("N2"))
+                                @((item.Quantity * item.UnitPrice).ToString("N0"))
                             </span>
                         </Template>
                     </RadzenDataGridColumn>
@@ -167,7 +167,7 @@
                     <RadzenText TextStyle="TextStyle.H6">
                         Grand Total:&nbsp;
                         <strong>
-                            @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N2") IRR
+                            @model.LineItems.Sum(li => li.Quantity * li.UnitPrice).ToString("N0") IRR
                         </strong>
                     </RadzenText>
                 </RadzenStack>
@@ -194,11 +194,14 @@
     private List<string> formErrors = new();
     private bool isSubmitting;
 
+    // runs automatically on page refreshes and lives inside Microsoft.AspNetCore.Components.ComponentBase
     protected override async Task OnInitializedAsync()
     {
-        var allCustomers = await CustomerRepository.GetBySpecificationAsync(
+        var allCustomers = await CustomerRepository.GetBySpecificationAsync
+        (
             ERP.SharedKernel.Common.Specification<Customer>.Empty,
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         customers = allCustomers
             .Where(c => c.IsActive)

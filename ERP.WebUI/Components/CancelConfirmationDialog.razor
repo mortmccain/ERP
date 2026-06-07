@@ -1,0 +1,55 @@
+﻿@inject Radzen.DialogService DialogService
+@implements IDisposable
+
+<div style="padding: 1rem;">
+    <RadzenStack Gap="1rem">
+        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-danger);">
+            ⚠️ Irreversible Action
+        </RadzenText>
+        <RadzenText>
+            You are about to cancel sale <strong>@SaleNumber</strong>.
+            This action is <strong>permanent and cannot be undone</strong>.
+        </RadzenText>
+        <RadzenText>Please confirm you want to proceed.</RadzenText>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End">
+            <RadzenButton Text="No, go back" ButtonStyle="ButtonStyle.Secondary" Click="() => DialogService.Close(false)" />
+            <RadzenButton Text="@ButtonText"
+                          ButtonStyle="ButtonStyle.Danger"
+                          Disabled="@(countdown > 0)"
+                          Click="() => DialogService.Close(true)" />
+        </RadzenStack>
+    </RadzenStack>
+</div>
+
+@code {
+    [Parameter] public string SaleNumber { get; set; } = string.Empty;
+
+    private int countdown = 3;
+    private CancellationTokenSource? _cts;
+
+    private string ButtonText => countdown > 0 ? $"Yes, I'm sure ({countdown}s)" : "Yes, I'm sure";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+        try
+        {
+            for (int i = 3; i > 0; i--)
+            {
+                countdown = i;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(1000, _cts.Token);
+            }
+            countdown = 0;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) { /* ignore */ }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

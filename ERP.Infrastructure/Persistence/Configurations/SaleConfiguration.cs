@@ -103,6 +103,8 @@ public sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.ShippedAtUtc).ValueGeneratedNever();
         builder.Property(s => s.CancelledAtUtc).ValueGeneratedNever();
         builder.Property(s => s.CancellationReason).HasMaxLength(1000).ValueGeneratedNever();
+        builder.Property(s => s.SubmittedAtUtc).ValueGeneratedNever();
+        builder.Property(s => s.InvoicedAtUtc).ValueGeneratedNever();
 
         // --- Line Items (One-to-Many relationship) ---
         builder.HasMany(s => s.LineItems)                    // has many sale line items
