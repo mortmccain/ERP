@@ -18,8 +18,10 @@
 <PageTitle>Dashboard - ERP</PageTitle>
 
 <HeadContent>
+
     <style>
-            .action-tile {
+            .action-tile 
+            {
                 transition: all 0.2s ease;
                 cursor: pointer;
                 padding: 1rem;
@@ -28,7 +30,8 @@
             }
 
                 .action-tile:hover,
-                .action-tile:active {
+                .action-tile:active 
+                {
                     background: var(--rz-panelmenu-item-hover-background-color);
                     border-color: gray;
                     color: gray;
@@ -36,27 +39,38 @@
                 }
 
                     .action-tile:hover .rz-icon,
-                    .action-tile:hover RadzenText {
+                    .action-tile:hover RadzenText 
+                    {
                         color: var(--rz-primary);
                     }
 
-        .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+        .stat-value 
+        {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1; 
+        }
 
-            .summary-card {
+            .summary-card 
+            {
                 transition: transform 0.18s ease, box-shadow 0.18s ease;
                 cursor: default;
             }
 
-                .summary-card:hover {
+                .summary-card:hover 
+                {
                     transform: scale(1.03);
                     box-shadow: 0 12px 2px rgba(49, 45, 47, 0.8);
                 }
 
 
-            .status-chart .rz-legend-bottom {
+            .status-chart .rz-legend-bottom 
+            {
                 bottom: -50px !important;
             }
+
     </style>
+
 </HeadContent>
 
 @* ── Loading ── *@
@@ -103,6 +117,7 @@ else if (stats is not null)
                 }
             </RadzenText>
         </div>
+
         @* Total revenue — prominent but not a card *@
         <div style="text-align: right;">
             <RadzenText TextStyle="TextStyle.Caption" ThemeColor="TextColor.Secondary"
@@ -231,6 +246,7 @@ else if (stats is not null)
                         · @(isEmployee ? "your sales" : "all sales")
                         · excluding cancelled
                     </RadzenText>
+
                     @if (stats.YearlyData.All(y => y.TotalAmount == 0))
                     {
                         <RadzenStack AlignItems="AlignItems.Center"

@@ -6,11 +6,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
- <RadzenTheme theme= "standard-dark"/>
+    <RadzenTheme theme="standard-dark" />
     <HeadOutlet @rendermode="@RenderModeForPage" />
-    <!-- SignalR client library -->
+
+    @* Runs synchronously — before the browser renders a single pixel.
+       HeadOutlet (above) already put the Radzen <link> in the DOM,
+       so querySelector finds it instantly and swaps the href. *@
+    <script>
+            (function () {
+                try {
+                    var t = localStorage.getItem('radzen_theme');
+                    if (!t || t === 'standard-dark') return;
+                    var l = document.querySelector('head link[href*="Radzen.Blazor/css/"]');
+                    if (l) l.href = l.href.replace(/\/css\/[^/]+\.css/, '/css/' + t + '.css');
+                } catch (e) { }
+            })();
+    </script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <!-- Our helper module -->
     <script src="js/notificationHub.js"></script>
 </head>
 <body>
