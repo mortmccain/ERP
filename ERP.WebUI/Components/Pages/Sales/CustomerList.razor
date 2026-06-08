@@ -3,14 +3,13 @@
 
 @implements IAsyncDisposable
 
-@using ERP.Application.Common.Interfaces
+@using ERP.Application.Customers.DTOs
+@using ERP.Application.Customers.Queries.GetAllCustomers
 @using ERP.Application.Customers.Commands.CreateCustomer
-@using ERP.Domain.Customers.Entities
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR
 
-@inject ICustomerRepository CustomerRepository
 @inject ISender Sender
 @inject Radzen.NotificationService NotificationService
 @inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
@@ -177,20 +176,21 @@
                             PageSize="10"
                             Style="height: auto;">
                 <Columns>
-                    <RadzenDataGridColumn TItem="Customer" Title="Code" Width="113px" Sortable="false">
+                    <RadzenDataGridColumn TItem="CustomerListDto" Title="Code" Width="113px"
+                                          Property="CustomerCode" Sortable="false">
                         <Template Context="customer">
-                            @customer.CustomerCode.Value
+                            @customer.CustomerCode
                         </Template>
                     </RadzenDataGridColumn>
 
-                    <RadzenDataGridColumn TItem="Customer" Property="Name" Title="Name" />
+                    <RadzenDataGridColumn TItem="CustomerListDto" Property="Name" Title="Name" />
 
-                    <RadzenDataGridColumn TItem="Customer" Property="Phone" Title="Phone" Width="130px" />
+                    <RadzenDataGridColumn TItem="CustomerListDto" Property="Phone" Title="Phone" Width="130px" Sortable="false" />
 
-                    <RadzenDataGridColumn TItem="Customer" Property="Email" Title="Email" />
+                    <RadzenDataGridColumn TItem="CustomerListDto" Property="Email" Title="Email" />
 
-                    <RadzenDataGridColumn TItem="Customer" Title="Active" Width="75px"
-                                          TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                    <RadzenDataGridColumn TItem="CustomerListDto" Title="Active" Width="75px"
+                                          TextAlign="TextAlign.Center" Sortable="false" Filterable="false" >
                         <Template Context="customer">
                             @if (customer.IsActive)
                             {
@@ -209,7 +209,7 @@
 </div>
 
 @code {
-    private List<Customer> customers = new();
+    private List<CustomerListDto> customers = new();
     private CustomerFormModel form = new();
     private List<string> formErrors = new();
     private bool sameAsBilling;
@@ -223,11 +223,11 @@
 
     private async Task LoadCustomers()
     {
-        customers = await CustomerRepository.GetBySpecificationAsync
-        (
-            ERP.SharedKernel.Common.Specification<Customer>.Empty,
-            CancellationToken.None
-        );
+        var query = new GetAllCustomersQuery();
+        var result = await Sender.Send(query);
+
+        if (result.IsSuccess)
+            customers = result.Value;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

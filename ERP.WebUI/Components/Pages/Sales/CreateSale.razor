@@ -1,17 +1,15 @@
 ﻿@page "/sales/create"
 @attribute [Authorize(Roles = "Admin,Manager,Employee")]
 
-
-
 @using ERP.Application.Common.Interfaces
 @using ERP.Application.Sales.Commands.CreateSale
-@using ERP.Domain.Customers.Entities
+@using ERP.Application.Customers.DTOs
+@using ERP.Application.Customers.Queries.GetActiveCustomersForSaleCreation
 @using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR
 
 @inject ISender Mediator
-@inject ICustomerRepository CustomerRepository
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
@@ -65,7 +63,7 @@
                             <strong>@model.SelectedCustomer.Name</strong>
                         </RadzenText>
                         <RadzenText TextStyle="TextStyle.Body2">
-                            Code: @model.SelectedCustomer.CustomerCode.Value
+                            Code: @model.SelectedCustomer.CustomerCode
                         </RadzenText>
                         <RadzenText TextStyle="TextStyle.Body2">
                             Phone: @model.SelectedCustomer.Phone
@@ -190,29 +188,24 @@
 @code {
     private RadzenDataGrid<LineItemModel> lineItemsGrid = default!;
     private CreateSaleModel model = new();
-    private List<CustomerListItem> customers = new();
+    private List<CustomerForSaleCreationDto> customers = new();
     private List<string> formErrors = new();
     private bool isSubmitting;
 
     // runs automatically on page refreshes and lives inside Microsoft.AspNetCore.Components.ComponentBase
     protected override async Task OnInitializedAsync()
     {
-        var allCustomers = await CustomerRepository.GetBySpecificationAsync
-        (
-            ERP.SharedKernel.Common.Specification<Customer>.Empty,
-            CancellationToken.None
-        );
+        var query = new GetActiveCustomersForSaleCreationQuery();
+        var result = await Mediator.Send(query);
 
-        customers = allCustomers
-            .Where(c => c.IsActive)
-            .Select(c => new CustomerListItem
-            {
-                Id = c.Id,
-                DisplayName = $"{c.Name} ({c.CustomerCode.Value})",
-                FullCustomer = c
-            })
-            .OrderBy(c => c.DisplayName)
-            .ToList();
+        if (result.IsSuccess)
+        {
+            customers = result.Value; // already ordered by DisplayName
+        }
+        else
+        {
+            formErrors.Add("Failed to load customers.");
+        }
     }
 
     // ValueChanged handler: updates both the ID and the full entity.
@@ -221,7 +214,7 @@
     {
         model.SelectedCustomerId = id;
         model.SelectedCustomer = id != Guid.Empty
-            ? customers.FirstOrDefault(c => c.Id == id)?.FullCustomer
+            ? customers.FirstOrDefault(c => c.Id == id)
             : null;
     }
 
@@ -261,7 +254,6 @@
                 CreatedByName = CurrentUser.FullName,
                 Items = model.LineItems.Select(li => new CreateSaleCommand.LineItem
                 {
-                    // No product catalogue yet — prototype uses a generated placeholder ID
                     ProductId = Guid.NewGuid(),
                     ProductName = li.ProductName.Trim(),
                     SKU = null,
@@ -321,7 +313,7 @@
     private sealed class CreateSaleModel
     {
         public Guid SelectedCustomerId { get; set; } = Guid.Empty;
-        public Customer? SelectedCustomer { get; set; }
+        public CustomerForSaleCreationDto? SelectedCustomer { get; set; }
         public List<LineItemModel> LineItems { get; set; } = new();
 
         public bool IsFormValid =>
@@ -340,12 +332,5 @@
         public string ProductName { get; set; } = string.Empty;
         public int Quantity { get; set; } = 1;
         public decimal UnitPrice { get; set; } = 0m;
-    }
-
-    private sealed class CustomerListItem
-    {
-        public Guid Id { get; init; }
-        public string DisplayName { get; init; } = string.Empty;
-        public Customer? FullCustomer { get; init; }
     }
 }

@@ -4,14 +4,18 @@
 @implements IAsyncDisposable
 
 
-@using Microsoft.AspNetCore.Identity
-@using System.Security.Claims
+
+@using ERP.Application.Users.DTOs
+@using ERP.Application.Users.Queries.GetAllUsers
+@using ERP.Application.Users.Commands.CreateUser
+@using ERP.Application.Users.Commands.DeleteUser
+@using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.SignalR
+@using System.Security.Claims
 
-@inject UserManager<IdentityUser<Guid>> UserManager
+@inject ISender Mediator
 @inject Radzen.NotificationService NotificationService
 @inject Radzen.DialogService DialogService
 @inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
@@ -83,12 +87,12 @@
             <RadzenDataGrid Data="@users" AllowPaging="true" PageSize="10">
 
                 <Columns>
-                    <RadzenDataGridColumn Property="UserName" Title="Username" />
+                    <RadzenDataGridColumn Property="Username" Title="Username" />
                     <RadzenDataGridColumn Property="Email" Title="Email" />
 
                     <RadzenDataGridColumn Title="Roles">
                         <Template Context="u">
-                            @string.Join(", ", userRoles.GetValueOrDefault(u.Id, new()))
+                            @string.Join(", ", u.Roles)
                         </Template>
                     </RadzenDataGridColumn>
 
@@ -116,13 +120,11 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthStateTask { get; set; }
 
-    private List<IdentityUser<Guid>> users = new();
-    private Dictionary<Guid, List<string>> userRoles = new();
-
+    private List<UserDto> users = new();
     private CreateUserModel newUser = new();
     private List<string> roles = new();
     private List<string> formErrors = new();
-
+    private IReadOnlyList<string> currentUserRoles = Array.Empty<string>();
     private Guid currentUserId;
     private bool isAdmin;
     private bool isManager;
@@ -140,6 +142,13 @@
         if (Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id))
             currentUserId = id;
 
+        var rolesList = new List<string>();
+        if (isAdmin) rolesList.Add("Admin");
+        if (isManager) rolesList.Add("Manager");
+        if (user.IsInRole("Employee")) rolesList.Add("Employee");
+        if (user.IsInRole("ReadOnly")) rolesList.Add("ReadOnly");
+        currentUserRoles = rolesList.AsReadOnly();
+
         roles = isAdmin
             ? new() { "Admin", "Manager", "Employee", "ReadOnly" }
             : new() { "Employee" };
@@ -149,33 +158,18 @@
 
     private async Task LoadUsers()
     {
-        userRoles.Clear();
-
-        var all = await UserManager.Users.ToListAsync();
-
-        users = isAdmin
-            ? all
-            : await FilterEmployeesOnly(all);
-
-        foreach (var u in users)
+        var query = new GetAllUsersQuery
         {
-            userRoles[u.Id] = (await UserManager.GetRolesAsync(u)).ToList();
-        }
-    }
+            RequestedByUserId = currentUserId,
+            UserRoles = currentUserRoles
+        };
 
-    private async Task<List<IdentityUser<Guid>>> FilterEmployeesOnly(
-        List<IdentityUser<Guid>> all)
-    {
-        var result = new List<IdentityUser<Guid>>();
+        var result = await Mediator.Send(query);
 
-        foreach (var u in all)
-        {
-            var r = await UserManager.GetRolesAsync(u);
-            if (r.Contains("Employee"))
-                result.Add(u);
-        }
-
-        return result;
+        if (result.IsSuccess)
+            users = result.Value;
+        else
+            NotificationService.Notify(new() { Severity = NotificationSeverity.Error, Summary = "Error", Detail = result.Error });
     }
 
     private async Task CreateUser()
@@ -190,47 +184,39 @@
         if (formErrors.Count > 0)
             return;
 
-        var user = new IdentityUser<Guid>
+        var command = new CreateUserCommand
         {
-            UserName = newUser.Username,
-            Email = newUser.Email
+            Username = newUser.Username,
+            Email = newUser.Email,
+            FullName = newUser.FullName,
+            Password = newUser.Password,
+            Role = isManager ? "Employee" : newUser.Role,   // enforce manager restriction
+            RequestedByUserId = currentUserId,
+            UserRoles = currentUserRoles
         };
 
-        var createResult = await UserManager.CreateAsync(user, newUser.Password);
+        var result = await Mediator.Send(command);
 
-        if (!createResult.Succeeded)
+        if (result.IsSuccess)
         {
-            formErrors = createResult.Errors.Select(e => e.Description).ToList();
-            return;
+            NotificationService.Notify(new()
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "User created",
+                Detail = $"'{newUser.FullName}' has been added successfully.",
+                Duration = 4000
+            });
+            newUser = new();
+            await LoadUsers();
+            await HubContext.Clients.All.SendAsync("RefreshData", "Users");
         }
-
-        // ROLE ENFORCEMENT (IMPORTANT)
-        var roleToAssign = isManager ? "Employee" : newUser.Role;
-
-        if (string.IsNullOrWhiteSpace(roleToAssign))
-            roleToAssign = "Employee";
-
-        await UserManager.AddToRoleAsync(user, roleToAssign);
-
-        if (!string.IsNullOrWhiteSpace(newUser.FullName))
+        else
         {
-            await UserManager.AddClaimAsync(user,
-                new Claim("FullName", newUser.FullName));
+            formErrors.Add(result.Error ?? "Failed to create user.");
         }
-
-        NotificationService.Notify(new Radzen.NotificationMessage
-        {
-            Severity = Radzen.NotificationSeverity.Success,
-            Summary = "User created",
-            Detail = $"'{newUser.FullName}' has been added successfully.",
-            Duration = 4000
-        });
-        newUser = new();
-        await LoadUsers();
-        await HubContext.Clients.All.SendAsync("RefreshData", "Users");
     }
 
-    private async Task ConfirmDelete(IdentityUser<Guid> user)
+    private async Task ConfirmDelete(UserDto user)
     {
         if (user.Id == currentUserId)
         {
@@ -243,21 +229,8 @@
             return;
         }
 
-        var roles = await UserManager.GetRolesAsync(user);
-
-        if (isManager && !roles.Contains("Employee"))
-        {
-            NotificationService.Notify(new()
-            {
-                Severity = NotificationSeverity.Error,
-                Summary = "Blocked",
-                Detail = "Managers can only delete employees"
-            });
-            return;
-        }
-
         var confirmed = await DialogService.Confirm(
-            $"Are you sure you want to permanently delete '{user.UserName}'? This action cannot be undone.",
+            $"Are you sure you want to permanently delete '{user.Username}'? This action cannot be undone.",
             "Delete User",
             new ConfirmOptions
             {
@@ -265,18 +238,37 @@
                 CancelButtonText = "Cancel",
                 CloseDialogOnEsc = true
             });
-            await DeleteUser(user);
+
+        if (confirmed == true)
+        {
+            await DeleteUser(user.Id);
+        }
     }
 
-    private async Task DeleteUser(IdentityUser<Guid> user)
+    private async Task DeleteUser(Guid userId)
     {
-        var result = await UserManager.DeleteAsync(user);
+        var command = new DeleteUserCommand
+        {
+            UserId = userId,
+            RequestedByUserId = currentUserId,
+            UserRoles = currentUserRoles
+        };
 
-        if (result.Succeeded)
+        var result = await Mediator.Send(command);
+
+        if (result.IsSuccess)
         {
             await LoadUsers();
             await HubContext.Clients.All.SendAsync("RefreshData", "Users");
-
+        }
+        else
+        {
+            NotificationService.Notify(new()
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Delete failed",
+                Detail = result.Error
+            });
         }
     }
 

@@ -17,9 +17,4 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Customers\Specifications\" />
-    <Folder Include="Customers\Queries\" />
-  </ItemGroup>
-
 </Project>
