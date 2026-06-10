@@ -15,36 +15,28 @@ var builder = WebApplication.CreateBuilder(args);
 // ==================================================================================================================================
 
 // --- Entity Framework & Identity ---
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions =>
-        {
-            sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-            sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null);
-        });
-});
+// DbContext registration moved to Infrastructure.DependencyInjection for consistency across WebUI/WebAPI
+// (shared scoped instance for UnitOfWork + repositories)
 
 builder.Services.AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>
     (
     options =>
-{
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 8;
-    options.Password.RequireNonAlphanumeric = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireLowercase = true;
+    {
+        // Password settings
+        options.Password.RequireDigit = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
 
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-    options.Lockout.MaxFailedAccessAttempts = 5;
+        // Lockout settings
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
 
-    // User settings
-    options.User.RequireUniqueEmail = false;
-    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-";
-}
+        // User settings
+        options.User.RequireUniqueEmail = false;
+        options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-";
+    }
     )
 
 .AddEntityFrameworkStores<AppDbContext>()

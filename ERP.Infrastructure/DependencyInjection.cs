@@ -2,7 +2,6 @@
 using ERP.Infrastructure.Persistence;
 using ERP.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,21 +20,16 @@ public static class DependencyInjection
         )
     {
         // --- Entity Framework Core ---
-
-        // --- Entity Framework Core ---
-        // --- Entity Framework Core ---
-        // Scoped factory – each call creates a fresh DbContext, avoids concurrency.
-        services.AddScoped<IDbContextFactory<AppDbContext>>(sp =>
+        // this is scoped (default behavior of AppDbContext)
+        services.AddDbContext<AppDbContext>(options =>
         {
-            var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            optionsBuilder.UseSqlServer(
+            options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection"),
                 sqlOptions =>
                 {
                     sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
                     sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null);
                 });
-            return new PooledDbContextFactory<AppDbContext>(optionsBuilder.Options);
         });
 
         // --- Repositories ---

@@ -11,25 +11,23 @@ namespace ERP.Infrastructure.Persistence;
 /// </summary>
 public sealed class UnitOfWork : IUnitOfWork
 {
-    private readonly IDbContextFactory<AppDbContext> _factory; private readonly IMediator _mediator;
-    private AppDbContext? _context;   // Created once per UnitOfWork
-    private AppDbContext Context => _context ??= _factory.CreateDbContext();    // what on god's grean earth does ??= mean
+    private readonly AppDbContext _context;
+    private readonly IMediator _mediator;
 
-    public UnitOfWork(IDbContextFactory<AppDbContext> factory, IMediator mediator)
+    public UnitOfWork(AppDbContext context, IMediator mediator)
     {
-        _factory = factory;
+        _context = context;
         _mediator = mediator;
     }
 
-
     public async Task<T?> GetByIdAsync<T>(Guid id, CancellationToken cancellationToken = default) where T : class
-{
-    return await Context.FindAsync<T>(id, cancellationToken);
-}
+    {
+        return await _context.FindAsync<T>(id, cancellationToken);
+    }
 
     public async Task AddAsync<T>(T entity, CancellationToken cancellationToken = default) where T : class
     {
-        await Context.AddAsync(entity, cancellationToken);
+        await _context.AddAsync(entity, cancellationToken);
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -40,7 +38,7 @@ public sealed class UnitOfWork : IUnitOfWork
         await DispatchDomainEventsAsync();
 
         // STEP 2: Persist all tracked changes to the database in a single transaction.
-        int result = await Context.SaveChangesAsync(cancellationToken);
+        int result = await _context.SaveChangesAsync(cancellationToken);
         return result;
     }
 
@@ -48,7 +46,7 @@ public sealed class UnitOfWork : IUnitOfWork
         IEnumerable<string>? includes = null,
         CancellationToken cancellationToken = default) where T : class
     {
-        IQueryable<T> query = Context.Set<T>();
+        IQueryable<T> query = _context.Set<T>();
 
         if (includes is not null)
         {
@@ -59,8 +57,6 @@ public sealed class UnitOfWork : IUnitOfWork
         return await query.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id, cancellationToken);
     }
 
-
-
     /// <summary>
     /// Finds all tracked Aggregate Roots that have pending domain events,
     /// publishes those events via MediatR, and clears them.
@@ -68,12 +64,12 @@ public sealed class UnitOfWork : IUnitOfWork
     private async Task DispatchDomainEventsAsync()
     {
         // Get all tracked Aggregate Roots that have domain events
-        var aggregateRoots = Context.ChangeTracker
+        var aggregateRoots = _context.ChangeTracker
             .Entries<AggregateRoot>()
             .Where(entry => entry.Entity.DomainEvents.Count > 0)    // if any domain events exist,...
             .Select(entry => entry.Entity)
             .ToList();  // if this wasn't here, the aggregateRoots variable wouldn't get materialized, so domain events would be
-                       // empty since the LINQ query (lazy) would execute after events are cleared.
+                        // empty since the LINQ query (lazy) would execute after events are cleared.
 
         // Collect all domain events
         var domainEvents = aggregateRoots
@@ -99,9 +95,9 @@ public sealed class UnitOfWork : IUnitOfWork
             await _mediator.Publish(domainEvent);
         }
     }
+
     public void Dispose()
     {
-        _context?.Dispose();
+        // Context lifetime managed by DI (scoped); no manual dispose needed here in most cases
     }
-
 }

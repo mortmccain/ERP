@@ -10,16 +10,16 @@ namespace ERP.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class SaleRepository : ISaleRepository
 {
-    private readonly IDbContextFactory<AppDbContext> _factory;
-    public SaleRepository(IDbContextFactory<AppDbContext> factory)
+    private readonly AppDbContext _context;
+
+    public SaleRepository(AppDbContext context)
     {
-        _factory = factory;
+        _context = context;
     }
 
     public async Task<Sale?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var context = await _factory.CreateDbContextAsync();
-        return await context.Sales
+        return await _context.Sales
             .Include(s => s.LineItems)      // eager loading since an aggregate root is incomplete without it's child entities
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
@@ -33,14 +33,13 @@ public sealed class SaleRepository : ISaleRepository
         CancellationToken cancellationToken = default
         )
     {
-        await using var context = await _factory.CreateDbContextAsync();
         // Count total matching records
-        var totalCount = await context.Sales
+        var totalCount = await _context.Sales
             .Where(specification.ToExpression())
             .CountAsync(cancellationToken);
 
         // Fetch the requested page
-        var items = await context.Sales
+        var items = await _context.Sales
             .Include(s => s.LineItems)
             .Where(specification.ToExpression())
             .OrderByDescending(s => s.CreatedAtUtc)
@@ -53,32 +52,29 @@ public sealed class SaleRepository : ISaleRepository
 
     public async Task<List<Sale>> GetAllBySpecificationAsync
         (
-    Specification<Sale> specification,
-    CancellationToken cancellationToken = default
+        Specification<Sale> specification,
+        CancellationToken cancellationToken = default
         )
     {
         // No .Include(s => s.LineItems) — dashboard only reads Sale-level aggregate fields.
         // Total, Status, CreatedAtUtc and CreatedByUserId are all on the Sale root itself.
-        await using var context = await _factory.CreateDbContextAsync();
 
-        return await context.Sales
-        .Where(specification.ToExpression())
+        return await _context.Sales
+            .Where(specification.ToExpression())
             .OrderByDescending(s => s.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }
 
-    // Write – also uses factory, saves inside the method
+    // Write – now uses shared context; SaveChanges handled by UnitOfWork
     public async Task AddAsync(Sale sale, CancellationToken ct)
     {
-        await using var context = await _factory.CreateDbContextAsync(ct);
-        context.Sales.Add(sale);
-        await context.SaveChangesAsync(ct);
+        _context.Sales.Add(sale);
+        // SaveChanges removed — handled by UnitOfWork in the same shared context/transaction
     }
 
     public async Task RemoveAsync(Sale sale, CancellationToken ct)
     {
-        await using var context = await _factory.CreateDbContextAsync(ct);
-        context.Sales.Remove(sale);
-        await context.SaveChangesAsync(ct);
+        _context.Sales.Remove(sale);
+        // SaveChanges removed — handled by UnitOfWork in the same shared context/transaction
     }
 }

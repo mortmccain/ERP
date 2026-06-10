@@ -10,44 +10,37 @@ namespace ERP.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class CustomerRepository : ICustomerRepository
 {
-    private readonly IDbContextFactory<AppDbContext> _factory;
+    private readonly AppDbContext _context;
 
-    public CustomerRepository(IDbContextFactory<AppDbContext> factory)
+    public CustomerRepository(AppDbContext context)
     {
-        _factory = factory;
+        _context = context;
     }
 
     public async Task<Customer?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var context = await _factory.CreateDbContextAsync();
-
-        return await context.Customers
-        .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        return await _context.Customers
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task<List<Customer>> GetBySpecificationAsync(
-    Specification<Customer> specification,
-    CancellationToken cancellationToken = default)
+        Specification<Customer> specification,
+        CancellationToken cancellationToken = default)
     {
-        await using var context = await _factory.CreateDbContextAsync();
-
-        return await context.Customers
+        return await _context.Customers
             .Where(specification.ToExpression())
             .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var context = await _factory.CreateDbContextAsync();
-
-        return await context.Customers
+        return await _context.Customers
             .AnyAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task AddAsync(Customer customer, CancellationToken ct)
     {
-        await using var context = await _factory.CreateDbContextAsync(ct);
-        context.Customers.Add(customer);
-        await context.SaveChangesAsync(ct);
+        _context.Customers.Add(customer);
+        // SaveChanges removed — handled by UnitOfWork in the same shared context/transaction
     }
 }

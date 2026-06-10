@@ -7,7 +7,8 @@ namespace ERP.Application.Sales.EventHandlers;
 
 /// <summary>
 /// When a Sale is created, updates the Customer's LastOrderDateUtc.
-/// This runs in the same transaction as the sale (via Unit of Work).
+/// This now correctly runs against the shared DbContext from UnitOfWork 
+/// (same transaction as the Sale creation).
 /// </summary>
 public sealed class UpdateCustomerLastOrderDateHandler
     : INotificationHandler<SaleCreatedDomainEvent>

@@ -15,9 +15,11 @@ public sealed class GetDashboardStatsQueryHandler
     private readonly ISaleRepository _saleRepository;
     private readonly ICustomerRepository _customerRepository;
 
-    public GetDashboardStatsQueryHandler(
+    public GetDashboardStatsQueryHandler
+        (
         ISaleRepository saleRepository,
-        ICustomerRepository customerRepository)
+        ICustomerRepository customerRepository
+        )
     {
         _saleRepository = saleRepository;
         _customerRepository = customerRepository;
