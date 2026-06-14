@@ -5,18 +5,16 @@ using ERP.SharedKernel.DTOs;
 
 namespace ERP.Application.Sales.Queries.GetSaleById;
 
-public sealed class GetSaleByIdQueryHandler : IRequestHandler<GetSaleByIdQuery, Result<SaleDto>>
+public static class GetSaleByIdQueryHandler
 {
-    private readonly ISaleRepository _saleRepository;
-
-    public GetSaleByIdQueryHandler(ISaleRepository saleRepository)
+    public static async Task<Result<SaleDto>> Handle
+        (
+        GetSaleByIdQuery query,
+        ISaleRepository saleRepository,
+        CancellationToken cancellationToken
+        )
     {
-        _saleRepository = saleRepository;
-    }
-
-    public async Task<Result<SaleDto>> Handle(GetSaleByIdQuery query, CancellationToken cancellationToken)
-    {
-        var sale = await _saleRepository.GetByIdAsync(query.SaleId, cancellationToken);
+        var sale = await saleRepository.GetByIdAsync(query.SaleId, cancellationToken);
 
         if (sale is null)
             return Result<SaleDto>.Failure($"Sale '{query.SaleId}' was not found.");

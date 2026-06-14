@@ -12,37 +12,22 @@ namespace ERP.Application.Sales.Commands.CreateSale;
 /// Orchestrates loading the Customer, creating the Sale Aggregate,
 /// adding line items, and persisting everything.
 /// </summary>
-public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand, Result<Guid>>
+public static class CreateSaleCommandHandler
 {
-    private readonly ICustomerRepository _customerRepository;
-    private readonly ISaleNumberGenerator _saleNumberGenerator;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<CreateSaleCommandHandler> _logger;
-
-    public CreateSaleCommandHandler
+    public static async Task<Result<Guid>> Handle
         (
+        CreateSaleCommand command,
         ICustomerRepository customerRepository,
         ISaleNumberGenerator saleNumberGenerator,
         IUnitOfWork unitOfWork,
-        ILogger<CreateSaleCommandHandler> logger
-        )
-    {
-        _customerRepository = customerRepository;
-        _saleNumberGenerator = saleNumberGenerator;
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result<Guid>> Handle
-        (
-        CreateSaleCommand command,
+        ILogger<CreateSaleCommand> logger,
         CancellationToken cancellationToken
         )
     {
         // ------------------------------------------------------------------
         // STEP 1: Load the Customer
         // ------------------------------------------------------------------
-        Customer? customer = await _customerRepository.GetByIdAsync
+        Customer? customer = await customerRepository.GetByIdAsync
             (
             command.CustomerId, cancellationToken
             );
@@ -62,7 +47,7 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         // ------------------------------------------------------------------
         // In production, this would use a sequence or a domain service.
         // For now, we generate a simple sequential-ish number.
-        var saleNumber = await _saleNumberGenerator.NextAsync("SALE", cancellationToken);
+        var saleNumber = await saleNumberGenerator.NextAsync("SALE", cancellationToken);
         // ------------------------------------------------------------------
         // STEP 3: Create the address and Sale Aggregate
         // ------------------------------------------------------------------
@@ -106,13 +91,13 @@ public sealed class CreateSaleCommandHandler : IRequestHandler<CreateSaleCommand
         // ------------------------------------------------------------------
         // STEP 5: Persist
         // ------------------------------------------------------------------
-        await _unitOfWork.AddAsync<Sale>(sale,cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.AddAsync<Sale>(sale,cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // ------------------------------------------------------------------
         // STEP 6: Log and return
         // ------------------------------------------------------------------
-        _logger.LogInformation
+        logger.LogInformation
             (
             "Created Sale {SaleNumber} for Customer {CustomerName}. SaleId: {SaleId}",
             sale.SaleNumber,

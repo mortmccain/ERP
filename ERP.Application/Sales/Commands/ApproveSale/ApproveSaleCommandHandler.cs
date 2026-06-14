@@ -5,24 +5,17 @@ using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.ApproveSale;
 
-public sealed class ApproveSaleCommandHandler : IRequestHandler<ApproveSaleCommand, Result>
+public static class ApproveSaleCommandHandler
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<ApproveSaleCommandHandler> _logger;
-
-    public ApproveSaleCommandHandler
+    public static async Task<Result> Handle
         (
+        ApproveSaleCommand command,
         IUnitOfWork unitOfWork,
-        ILogger<ApproveSaleCommandHandler> logger
+        ILogger<ApproveSaleCommand> logger,
+        CancellationToken cancellationToken
         )
     {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result> Handle(ApproveSaleCommand command, CancellationToken cancellationToken)
-    {
-        var sale = await _unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
+        var sale = await unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
 
         if (sale is null)
             return Result.Failure($"Sale '{command.SaleId}' was not found.");
@@ -42,11 +35,13 @@ public sealed class ApproveSaleCommandHandler : IRequestHandler<ApproveSaleComma
             return Result.Failure(ex.Message);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation
+            (
             "Sale {SaleNumber} (Id: {SaleId}) approved by user {UserId}.",
-            sale.SaleNumber.Value, sale.Id, command.ApprovedByUserId);
+            sale.SaleNumber.Value, sale.Id, command.ApprovedByUserId
+            );
 
         return Result.Success();
     }

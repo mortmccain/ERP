@@ -2,7 +2,7 @@
 
 namespace ERP.Application.Sales.Commands.CancelSale;
 
-public sealed class CancelSaleCommand : IRequest<Result>
+public sealed class CancelSaleCommand
 {
     public Guid SaleId { get; init; }
     public Guid CancelledByUserId { get; init; }

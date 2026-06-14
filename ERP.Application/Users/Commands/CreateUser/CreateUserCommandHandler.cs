@@ -3,16 +3,14 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Users.Commands.CreateUser;
 
-public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Result>
+public static class CreateUserCommandHandler
 {
-    private readonly IUserRepository _userRepository;
-
-    public CreateUserCommandHandler(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
-    public async Task<Result> Handle(CreateUserCommand command, CancellationToken cancellationToken)
+    public static async Task<Result> Handle
+        (
+        CreateUserCommand command,
+        IUserRepository userRepository,
+        CancellationToken cancellationToken
+        )
     {
         // Role enforcement
         string role;
@@ -25,13 +23,15 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
 
         try
         {
-            await _userRepository.CreateAsync(
+            await userRepository.CreateAsync
+                (
                 command.Username,
                 command.Email,
                 command.FullName,
                 command.Password,
                 role,
-                cancellationToken);
+                cancellationToken
+                );
         }
         catch (InvalidOperationException ex)
         {

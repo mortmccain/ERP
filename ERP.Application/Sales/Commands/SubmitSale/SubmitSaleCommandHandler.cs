@@ -5,23 +5,17 @@ using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.SubmitSale;
 
-public sealed class SubmitSaleCommandHandler : IRequestHandler<SubmitSaleCommand, Result>
+public static class SubmitSaleCommandHandler
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<SubmitSaleCommandHandler> _logger;
-
-    public SubmitSaleCommandHandler(
-        ISaleRepository saleRepository,
+    public static async Task<Result> Handle
+        (
+        SubmitSaleCommand command,
         IUnitOfWork unitOfWork,
-        ILogger<SubmitSaleCommandHandler> logger)
+        ILogger<SubmitSaleCommand> logger,
+        CancellationToken cancellationToken
+        )
     {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result> Handle(SubmitSaleCommand command, CancellationToken cancellationToken)
-    {
-        var sale = await _unitOfWork.GetByIdAsync<Sale>(
+        var sale = await unitOfWork.GetByIdAsync<Sale>(
             command.SaleId,
             includes: new[] { nameof(Sale.LineItems) },
             cancellationToken);
@@ -45,9 +39,9 @@ public sealed class SubmitSaleCommandHandler : IRequestHandler<SubmitSaleCommand
             return Result.Failure(ex.Message);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Sale {SaleNumber} (Id: {SaleId}) submitted by user {UserId}.",
             sale.SaleNumber.Value, sale.Id, command.SubmittedByUserId);
 

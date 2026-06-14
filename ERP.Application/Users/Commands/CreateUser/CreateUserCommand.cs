@@ -2,7 +2,7 @@
 
 namespace ERP.Application.Users.Commands.CreateUser;
 
-public sealed class CreateUserCommand : IRequest<Result>
+public sealed class CreateUserCommand
 {
     public string Username { get; init; } = string.Empty;
     public string? Email { get; init; }

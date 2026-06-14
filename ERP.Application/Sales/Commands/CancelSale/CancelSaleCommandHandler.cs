@@ -6,23 +6,18 @@ using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.CancelSale;
 
-public sealed class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand, Result>
+public static class CancelSaleCommandHandler
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<CancelSaleCommandHandler> _logger;
-
-    public CancelSaleCommandHandler(
+    public static async Task<Result> Handle
+        (
+        CancelSaleCommand command,
         IUnitOfWork unitOfWork,
-        ILogger<CancelSaleCommandHandler> logger)
-    {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result> Handle(CancelSaleCommand command, CancellationToken cancellationToken)
+        ILogger<CancelSaleCommand> logger,
+        CancellationToken cancellationToken
+        )
     {
         // STEP 1: Load the sale
-        var sale = await _unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
+        var sale = await unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken);
         if (sale is null)
             return Result.Failure($"Sale '{command.SaleId}' was not found.");
 
@@ -70,9 +65,9 @@ public sealed class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand
         }
 
         // STEP 5: Persist
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Sale {SaleId} ({SaleNumber}) cancelled by user {UserId}. Reason: {Reason}",
             sale.Id, sale.SaleNumber.Value, command.CancelledByUserId, command.Reason);
 

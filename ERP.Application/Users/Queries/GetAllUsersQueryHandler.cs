@@ -4,18 +4,16 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Users.Queries.GetAllUsers;
 
-public sealed class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, Result<List<UserDto>>>
+public static class GetAllUsersQueryHandler
 {
-    private readonly IUserRepository _userRepository;
-
-    public GetAllUsersQueryHandler(IUserRepository userRepository)
+    public static async Task<Result<List<UserDto>>> Handle
+        (
+        GetAllUsersQuery query,
+        IUserRepository userRepository,
+        CancellationToken cancellationToken
+        )
     {
-        _userRepository = userRepository;
-    }
-
-    public async Task<Result<List<UserDto>>> Handle(GetAllUsersQuery query, CancellationToken cancellationToken)
-    {
-        var allUsers = await _userRepository.GetAllUsersAsync(cancellationToken);
+        var allUsers = await userRepository.GetAllUsersAsync(cancellationToken);
 
         var isAdmin = query.UserRoles.Contains("Admin");
         var isManager = query.UserRoles.Contains("Manager");

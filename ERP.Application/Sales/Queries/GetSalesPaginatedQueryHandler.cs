@@ -7,26 +7,21 @@ using ERP.SharedKernel.DTOs;
 
 namespace ERP.Application.Sales.Queries.GetSalesPaginated;
 
-public sealed class GetSalesPaginatedQueryHandler
-    : IRequestHandler<GetSalesPaginatedQuery, PaginatedResult<SaleListItemDto>>
+public static class GetSalesPaginatedQueryHandler
 {
-    private readonly ISaleRepository _saleRepository;
-
-    public GetSalesPaginatedQueryHandler(ISaleRepository saleRepository)
-    {
-        _saleRepository = saleRepository;
-    }
-
-    public async Task<PaginatedResult<SaleListItemDto>> Handle(
+    public static async Task<PaginatedResult<SaleListItemDto>> Handle
+        (
         GetSalesPaginatedQuery query,
-        CancellationToken cancellationToken)
+        ISaleRepository saleRepository,
+        CancellationToken cancellationToken
+        )
     {
         // Employees get a creator-scoped spec; admins and managers get everything
         var spec = query.FilterByCreatorId.HasValue
             ? (Specification<Sale>)new SaleByCreatorSpecification(query.FilterByCreatorId.Value)
             : Specification<Sale>.Empty;
 
-        var paginated = await _saleRepository.GetPaginatedBySpecificationAsync(
+        var paginated = await saleRepository.GetPaginatedBySpecificationAsync(
             spec, query.PageNumber, query.PageSize, cancellationToken);
 
         var dtos = paginated.Items.Select(s => new SaleListItemDto

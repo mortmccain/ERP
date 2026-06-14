@@ -1,7 +1,8 @@
 ﻿using System.Reflection;
-using ERP.Application.Common.Behaviors;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Wolverine;
+using Wolverine.FluentValidation;
 
 namespace ERP.Application;
 
@@ -13,23 +14,26 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Register MediatR — discovers all Command/Query handlers in this assembly
-        services.AddMediatR
-        (
-                cfg =>
-            {
-                cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
-            }
-        );
-
-        // Register FluentValidation — discovers all Validators in this assembly
+        // 1. FluentValidation (still needed)
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
-        // Register pipeline behaviors (order matters — outermost first)
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ErrorHandlingBehavior<,>));
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
+        // 2. Wolverine configuration
+        services.AddWolverine(opts =>
+        {
+            // Discover all message handlers (commands, queries, events) in this assembly
+            opts.Discovery.IncludeAssembly(Assembly.GetExecutingAssembly());
+
+            // Enable FluentValidation middleware (replaces ValidationBehavior)
+            opts.AddFluentValidation();
+
+            // Global middleware (executes in this order)
+            opts.Policies.Add<LoggingMiddleware>();
+            opts.Policies.Add<ErrorHandlingMiddleware>();
+            opts.Policies.Add<PerformanceMiddleware>();
+
+            // Configure local routing for domain events (stay in-process)
+            opts.LocalRoutingConvention = true;
+        });
 
         return services;
     }

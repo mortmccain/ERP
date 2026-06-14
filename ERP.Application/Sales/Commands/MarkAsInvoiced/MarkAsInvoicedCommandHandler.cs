@@ -5,24 +5,17 @@ using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.MarkAsInvoiced;
 
-public sealed class MarkAsInvoicedCommandHandler : IRequestHandler<MarkAsInvoicedCommand, Result>
+public static class MarkAsInvoicedCommandHandler
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<MarkAsInvoicedCommandHandler> _logger;
-
-    public MarkAsInvoicedCommandHandler
+    public static async Task<Result> Handle
         (
+        MarkAsInvoicedCommand command,
         IUnitOfWork unitOfWork,
-        ILogger<MarkAsInvoicedCommandHandler> logger
+        ILogger<MarkAsInvoicedCommand> logger,
+        CancellationToken cancellationToken
         )
     {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result> Handle(MarkAsInvoicedCommand command, CancellationToken cancellationToken)
-    {
-        var sale = await _unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken: cancellationToken);
+        var sale = await unitOfWork.GetByIdAsync<Sale>(command.SaleId, cancellationToken: cancellationToken);
         if (sale is null)
             return Result.Failure($"Sale '{command.SaleId}' was not found.");
 
@@ -38,9 +31,9 @@ public sealed class MarkAsInvoicedCommandHandler : IRequestHandler<MarkAsInvoice
             return Result.Failure(ex.Message);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Sale {SaleNumber} (Id: {SaleId}) marked as invoiced by user {UserId}.",
             sale.SaleNumber.Value, sale.Id, command.MarkedByUserId);
 

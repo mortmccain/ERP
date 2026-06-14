@@ -1,12 +1,10 @@
-﻿using ERP.SharedKernel.Common;
-
-namespace ERP.Application.Sales.Commands.CreateSale;
+﻿namespace ERP.Application.Sales.Commands.CreateSale;
 
 /// <summary>
 /// Command to create a new Sale.
 /// Returns the ID of the newly created Sale on success.
 /// </summary>
-public sealed class CreateSaleCommand : IRequest<Result<Guid>>
+public sealed class CreateSaleCommand
 {
     // all properties are init because commands are immutable
     public Guid CustomerId { get; init; }

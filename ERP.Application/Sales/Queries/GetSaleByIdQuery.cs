@@ -3,7 +3,7 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Sales.Queries.GetSaleById;
 
-public sealed class GetSaleByIdQuery : IRequest<Result<SaleDto>>
+public sealed class GetSaleByIdQuery
 {
     public Guid SaleId { get; init; }
     public Guid RequestedByUserId { get; init; }

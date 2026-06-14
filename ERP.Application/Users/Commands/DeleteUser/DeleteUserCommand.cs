@@ -2,7 +2,7 @@
 
 namespace ERP.Application.Users.Commands.DeleteUser;
 
-public sealed class DeleteUserCommand : IRequest<Result>
+public sealed class DeleteUserCommand
 {
     public Guid UserId { get; init; }
     public Guid RequestedByUserId { get; init; }

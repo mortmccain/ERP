@@ -6,28 +6,17 @@ using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Customers.Commands.CreateCustomer;
 
-public sealed class CreateCustomerCommandHandler : IRequestHandler<CreateCustomerCommand, Result<Guid>>
+public static class CreateCustomerCommandHandler
 {
-    private readonly ICustomerCodeGenerator _customerCodeGenerator;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<CreateCustomerCommandHandler> _logger;
-
-    public CreateCustomerCommandHandler(
+    public static async Task<Result<Guid>> Handle(
+        CreateCustomerCommand command,
         ICustomerCodeGenerator customerCodeGenerator,
         IUnitOfWork unitOfWork,
-        ILogger<CreateCustomerCommandHandler> logger)
-    {
-        _customerCodeGenerator = customerCodeGenerator;
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task<Result<Guid>> Handle(
-        CreateCustomerCommand command,
+        ILogger<CreateCustomerCommand> logger,
         CancellationToken cancellationToken)
     {
         // STEP 1: Generate a CustomerCode
-        var customerCode = await _customerCodeGenerator.NextAsync("CUST", cancellationToken);
+        var customerCode = await customerCodeGenerator.NextAsync("CUST", cancellationToken);
 
         // STEP 2: Build Address value objects from the flat command inputs
         var billingAddress = new Address(
@@ -55,11 +44,11 @@ public sealed class CreateCustomerCommandHandler : IRequestHandler<CreateCustome
             command.IsActive);
 
         // STEP 4: Persist
-        await _unitOfWork.AddAsync<Customer>(customer,cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.AddAsync<Customer>(customer, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // STEP 5: Log and return
-        _logger.LogInformation(
+        logger.LogInformation(
             "Created Customer {CustomerCode} - {CustomerName}. CustomerId: {CustomerId}",
             customer.CustomerCode,
             customer.Name,

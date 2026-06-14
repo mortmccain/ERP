@@ -1,12 +1,10 @@
-﻿using ERP.SharedKernel.Common;
-
-namespace ERP.Application.Customers.Commands.CreateCustomer;
+﻿namespace ERP.Application.Customers.Commands.CreateCustomer;
 
 /// <summary>
 /// Command to create a new Customer.
 /// Returns the ID of the newly created Customer on success.
 /// </summary>
-public sealed class CreateCustomerCommand : IRequest<Result<Guid>>
+public sealed class CreateCustomerCommand
 {
     public string Name { get; init; } = string.Empty;
     public string? Email { get; init; }
