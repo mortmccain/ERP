@@ -23,5 +23,5 @@
     <ProjectReference Include="..\ERP.Infrastructure\ERP.Infrastructure.csproj" />
     <ProjectReference Include="..\ERP.SharedKernel\ERP.SharedKernel.csproj" />
   </ItemGroup>
-
+	
 </Project>

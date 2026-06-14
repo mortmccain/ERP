@@ -4,6 +4,7 @@ using ERP.Infrastructure.Identity;
 using ERP.Infrastructure.Persistence;
 using ERP.WebUI.Hubs;
 using ERP.WebUI.Services;
+using JasperFx.CodeGeneration;
 using JasperFx.CodeGeneration.Model;
 using Microsoft.AspNetCore.Identity;
 using Radzen;
@@ -48,12 +49,12 @@ builder.Services.ConfigureApplicationCookie
     (
     options =>
     {
-        options.Cookie.HttpOnly = true;                             // javascript can not read the cookies (prevents XSS attacks)
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;   // HTTPS only (prevents man in the middle attacks)
-        options.Cookie.SameSite = SameSiteMode.Strict;            // send this cookie IF the request came from MY website (Prevents CSRF)
-        options.ExpireTimeSpan = TimeSpan.FromHours(1);          // Session length
-        options.SlidingExpiration = true;                       // Extends session on activity
-        options.LoginPath = "/Account/Login";                  // why are these in the cookies section?
+        options.Cookie.HttpOnly = true;                           // javascript can not read the cookies (prevents XSS attacks)
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS only (prevents man in the middle attacks)
+        options.Cookie.SameSite = SameSiteMode.Strict;          // send this cookie IF the request came from MY website (Prevents CSRF)
+        options.ExpireTimeSpan = TimeSpan.FromHours(1);        // Session length
+        options.SlidingExpiration = true;                     // Extends session on activity
+        options.LoginPath = "/Account/Login";                // why are these in the cookies section?
         options.LogoutPath = "/Account/Logout";
         options.AccessDeniedPath = "/Account/AccessDenied";
     }
@@ -72,10 +73,18 @@ builder.Host.UseWolverine(options =>
 {
     ERP.Application.DependencyInjection.ConfigureWolverine(options);
 
-    // Allow service location for EF Core lambda factories (DbContextOptions<T>).
-    // Wolverine 6 defaults to NotAllowed, which breaks EF Core's opaque registrations.
-    // AllowedButWarn keeps the 5.x behavior; use AlwaysAllowed to silence the log warning.
-    options.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+    // Development: auto-generate at runtime (fast iteration)
+    // Production: use pre-generated code (fast startup)
+    if (builder.Environment.IsDevelopment())
+    {
+        options.CodeGeneration.TypeLoadMode = TypeLoadMode.Dynamic;
+    }
+    else
+    {
+        options.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
+    }
+
+    options.ServiceLocationPolicy = ServiceLocationPolicy.AlwaysAllowed;
 });
 
 // --- Blazor ---
