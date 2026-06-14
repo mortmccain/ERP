@@ -4,7 +4,6 @@ using ERP.Application.Sales.Specifications;
 using ERP.Domain.Sales.Entities;
 using ERP.SharedKernel.Common;
 using ERP.SharedKernel.DTOs;
-using MediatR;
 
 namespace ERP.Application.Sales.Queries.GetSalesPaginated;
 

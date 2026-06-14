@@ -1,7 +1,6 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.Application.Users.DTOs;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Users.Queries.GetAllUsers;
 

@@ -2,7 +2,6 @@
 using ERP.Application.Customers.DTOs;
 using ERP.Application.Customers.Specifications;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Customers.Queries.GetActiveCustomersForSaleCreation;
 

@@ -1,5 +1,4 @@
-﻿using MediatR;
-
+﻿
 namespace ERP.SharedKernel.Common
 {
     /// <summary>

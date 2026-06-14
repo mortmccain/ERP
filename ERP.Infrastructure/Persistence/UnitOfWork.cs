@@ -1,6 +1,5 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.SharedKernel.Primitives;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Infrastructure.Persistence;

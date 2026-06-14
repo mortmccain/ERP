@@ -5,7 +5,6 @@ using ERP.Domain.Customers.Entities;
 using ERP.Domain.Sales.Entities;
 using ERP.Domain.Sales.Enums;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Dashboard.Queries.GetDashboardStats;
 

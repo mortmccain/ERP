@@ -2,7 +2,6 @@
 using ERP.Domain.Customers.Entities;
 using ERP.SharedKernel.Common;
 using ERP.SharedKernel.ValueObjects;
-using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Customers.Commands.CreateCustomer;

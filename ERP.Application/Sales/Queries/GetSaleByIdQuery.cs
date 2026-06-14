@@ -1,6 +1,5 @@
 ﻿using ERP.Application.Sales.DTOs;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Sales.Queries.GetSaleById;
 

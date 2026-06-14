@@ -1,6 +1,5 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Users.Commands.DeleteUser;
 

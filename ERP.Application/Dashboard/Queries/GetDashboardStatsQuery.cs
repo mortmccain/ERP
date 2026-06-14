@@ -1,6 +1,5 @@
 ﻿using ERP.Application.Dashboard.DTOs;
 using ERP.SharedKernel.Common;
-using MediatR;
 
 namespace ERP.Application.Dashboard.Queries.GetDashboardStats;
 

@@ -1,6 +1,5 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.Domain.Sales.Events;
-using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.EventHandlers;

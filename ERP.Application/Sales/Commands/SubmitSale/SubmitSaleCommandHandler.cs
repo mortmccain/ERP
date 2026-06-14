@@ -1,7 +1,6 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.Domain.Sales.Entities;
 using ERP.SharedKernel.Common;
-using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.SubmitSale;

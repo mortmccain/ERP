@@ -2,7 +2,6 @@
 using ERP.Domain.Sales.Entities;
 using ERP.Domain.Sales.Enums;
 using ERP.SharedKernel.Common;
-using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace ERP.Application.Sales.Commands.CancelSale;

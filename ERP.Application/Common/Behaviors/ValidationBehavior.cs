@@ -1,6 +1,5 @@
 ﻿using ERP.SharedKernel.Common;
 using FluentValidation;
-using MediatR;
 
 namespace ERP.Application.Common.Behaviors;
 
