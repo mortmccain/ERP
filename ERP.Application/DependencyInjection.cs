@@ -1,6 +1,7 @@
-﻿using System.Reflection;
+﻿using ERP.Application.Common.Middleware;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 using Wolverine;
 using Wolverine.FluentValidation;
 
@@ -8,32 +9,41 @@ namespace ERP.Application;
 
 /// <summary>
 /// Centralizes registration of all Application layer services.
-/// Call this from Program.cs in both WebUI and WebAPI.
+/// Call from Program.cs in both WebUI and WebAPI.
 /// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Configures Wolverine message bus options (handler discovery, middleware, FluentValidation).
+    /// Must be called via builder.Host.UseWolverine(...) in the host project.
+    /// </summary>
+    public static void ConfigureWolverine(WolverineOptions options)
+    {
+        // Discover all command/query/event handlers in this assembly
+        options.Discovery.IncludeAssembly(Assembly.GetExecutingAssembly());
+
+        // Global middleware — order matters (outermost first, innermost last)
+        // Mirrors original MediatR pipeline: Logging → Performance
+        options.Policies.AddMiddleware < LoggingMiddleware > ();
+        options.Policies.AddMiddleware < PerformanceMiddleware > ();
+
+        // FluentValidation (replaces ValidationBehavior; runs before handlers)
+        // Throws ValidationException on failure, which the Blazor try/catch handles.
+        options.UseFluentValidation();
+
+        // NOTE: ServiceLocationPolicy / AlwaysUseServiceLocationFor is NOT set here
+        // because AppDbContext lives in Infrastructure. The host project (WebUI/WebAPI)
+        // adds that after calling this method.
+    }
+
+    /// <summary>
+    /// Registers Application layer services into DI.
+    /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // 1. FluentValidation (still needed)
+        // Register FluentValidation validators into DI container
+        // (needed by Wolverine.FluentValidation middleware)
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-
-        // 2. Wolverine configuration
-        services.AddWolverine(opts =>
-        {
-            // Discover all message handlers (commands, queries, events) in this assembly
-            opts.Discovery.IncludeAssembly(Assembly.GetExecutingAssembly());
-
-            // Enable FluentValidation middleware (replaces ValidationBehavior)
-            opts.AddFluentValidation();
-
-            // Global middleware (executes in this order)
-            opts.Policies.Add<LoggingMiddleware>();
-            opts.Policies.Add<ErrorHandlingMiddleware>();
-            opts.Policies.Add<PerformanceMiddleware>();
-
-            // Configure local routing for domain events (stay in-process)
-            opts.LocalRoutingConvention = true;
-        });
 
         return services;
     }

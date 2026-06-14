@@ -3,7 +3,7 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Dashboard.Queries.GetDashboardStats;
 
-public sealed class GetDashboardStatsQuery : IRequest<Result<DashboardStatsDto>>
+public sealed class GetDashboardStatsQuery
 {
     public Guid RequestedByUserId { get; init; }
     public IReadOnlyList<string> UserRoles { get; init; } = Array.Empty<string>();

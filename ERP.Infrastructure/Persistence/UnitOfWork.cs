@@ -1,6 +1,7 @@
 ﻿using ERP.Application.Common.Interfaces;
 using ERP.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
+using Wolverine;
 
 namespace ERP.Infrastructure.Persistence;
 
@@ -11,12 +12,12 @@ namespace ERP.Infrastructure.Persistence;
 public sealed class UnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _context;
-    private readonly IMediator _mediator;
+    private readonly IMessageBus _messageBus;
 
-    public UnitOfWork(AppDbContext context, IMediator mediator)
+    public UnitOfWork(AppDbContext context, IMessageBus messageBus)
     {
         _context = context;
-        _mediator = mediator;
+        _messageBus = messageBus;
     }
 
     public async Task<T?> GetByIdAsync<T>(Guid id, CancellationToken cancellationToken = default) where T : class
@@ -91,7 +92,7 @@ public sealed class UnitOfWork : IUnitOfWork
         // to the DbContext before SaveChanges commits everything.
         foreach (var domainEvent in domainEvents)
         {
-            await _mediator.Publish(domainEvent);
+            await _messageBus.PublishAsync(domainEvent);
         }
     }
 

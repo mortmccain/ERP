@@ -8,30 +8,33 @@ public sealed class PerformanceMiddleware
 {
     private readonly ILogger<PerformanceMiddleware> _logger;
     private const int WarningThresholdMs = 500;
+    private Stopwatch? _stopwatch;
 
     public PerformanceMiddleware(ILogger<PerformanceMiddleware> logger)
     {
         _logger = logger;
     }
 
-    public async Task<T> InvokeAsync<T>(
-        Func<Task<T>> next,
-        IMessageContext context,
-        CancellationToken cancellationToken)
+    public Task BeforeAsync(Envelope envelope, CancellationToken cancellationToken)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var response = await next();
-        stopwatch.Stop();
+        _stopwatch = Stopwatch.StartNew();
+        return Task.CompletedTask;
+    }
 
-        if (stopwatch.ElapsedMilliseconds > WarningThresholdMs)
+    public Task AfterAsync(Envelope envelope, CancellationToken cancellationToken)
+    {
+        _stopwatch?.Stop();
+
+        if (_stopwatch != null && _stopwatch.ElapsedMilliseconds > WarningThresholdMs)
         {
+            var requestName = envelope.Message?.GetType().Name ?? "Unknown";
             _logger.LogWarning(
                 "Slow request: {RequestName} took {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
-                context.Message?.GetType().Name ?? "Unknown",
-                stopwatch.ElapsedMilliseconds,
+                requestName,
+                _stopwatch.ElapsedMilliseconds,
                 WarningThresholdMs);
         }
 
-        return response;
+        return Task.CompletedTask;
     }
 }

@@ -8,25 +8,15 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Dashboard.Queries.GetDashboardStats;
 
-public sealed class GetDashboardStatsQueryHandler
-    : IRequestHandler<GetDashboardStatsQuery, Result<DashboardStatsDto>>
+public static class GetDashboardStatsQueryHandler
 {
-    private readonly ISaleRepository _saleRepository;
-    private readonly ICustomerRepository _customerRepository;
-
-    public GetDashboardStatsQueryHandler
+    public static async Task<Result<DashboardStatsDto>> Handle
         (
-        ISaleRepository saleRepository,
-        ICustomerRepository customerRepository
-        )
-    {
-        _saleRepository = saleRepository;
-        _customerRepository = customerRepository;
-    }
-
-    public async Task<Result<DashboardStatsDto>> Handle(
         GetDashboardStatsQuery query,
-        CancellationToken cancellationToken)
+                ISaleRepository saleRepository,
+        ICustomerRepository customerRepository,
+        CancellationToken cancellationToken
+        )
     {
         // ReadOnly users see company-wide data just like Admin and Manager.
         // Only plain Employee role is scoped to their own sales.
@@ -39,10 +29,10 @@ public sealed class GetDashboardStatsQueryHandler
             : Specification<Sale>.Empty;
 
         // Load matching sales — no line items needed for dashboard aggregations
-        var allSales = await _saleRepository.GetAllBySpecificationAsync(spec, cancellationToken);
+        var allSales = await saleRepository.GetAllBySpecificationAsync(spec, cancellationToken);
 
         // Customers are always company-wide; employees still need to know who to sell to
-        var allCustomers = await _customerRepository.GetBySpecificationAsync(
+        var allCustomers = await customerRepository.GetBySpecificationAsync(
             Specification<Customer>.Empty, cancellationToken);
 
         int currentYear = DateTime.UtcNow.Year;

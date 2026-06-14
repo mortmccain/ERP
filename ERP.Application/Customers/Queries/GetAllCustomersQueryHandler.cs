@@ -5,18 +5,16 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Customers.Queries.GetAllCustomers;
 
-public sealed class GetAllCustomersQueryHandler : IRequestHandler<GetAllCustomersQuery, Result<List<CustomerListDto>>>
+public static class GetAllCustomersQueryHandler
 {
-    private readonly ICustomerRepository _customerRepository;
-
-    public GetAllCustomersQueryHandler(ICustomerRepository customerRepository)
+    public static async Task<Result<List<CustomerListDto>>> Handle
+        (
+        GetAllCustomersQuery query,
+        ICustomerRepository customerRepository,
+        CancellationToken cancellationToken
+        )
     {
-        _customerRepository = customerRepository;
-    }
-
-    public async Task<Result<List<CustomerListDto>>> Handle(GetAllCustomersQuery query, CancellationToken cancellationToken)
-    {
-        var customers = await _customerRepository.GetBySpecificationAsync(
+        var customers = await customerRepository.GetBySpecificationAsync(
             Specification<Customer>.Empty,
             cancellationToken);
 

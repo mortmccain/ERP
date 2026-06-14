@@ -5,23 +5,18 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Customers.Queries.GetActiveCustomersForSaleCreation;
 
-public sealed class GetActiveCustomersForSaleCreationQueryHandler
-    : IRequestHandler<GetActiveCustomersForSaleCreationQuery, Result<List<CustomerForSaleCreationDto>>>
+public static class GetActiveCustomersForSaleCreationQueryHandler
 {
-    private readonly ICustomerRepository _customerRepository;
-
-    public GetActiveCustomersForSaleCreationQueryHandler(ICustomerRepository customerRepository)
-    {
-        _customerRepository = customerRepository;
-    }
-
-    public async Task<Result<List<CustomerForSaleCreationDto>>> Handle(
+    public static async Task<Result<List<CustomerForSaleCreationDto>>> Handle
+        (
         GetActiveCustomersForSaleCreationQuery query,
-        CancellationToken cancellationToken)
+        ICustomerRepository customerRepository,
+        CancellationToken cancellationToken
+        )
     {
         var specification = new ActiveCustomerSpecification();
 
-        var customers = await _customerRepository.GetBySpecificationAsync(specification, cancellationToken);
+        var customers = await customerRepository.GetBySpecificationAsync(specification, cancellationToken);
 
         var dtos = customers
             .Select(c => new CustomerForSaleCreationDto

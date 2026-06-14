@@ -6,11 +6,12 @@
 @using ERP.Application.Customers.DTOs
 @using ERP.Application.Customers.Queries.GetAllCustomers
 @using ERP.Application.Customers.Commands.CreateCustomer
-@using MediatR
+@using ERP.SharedKernel.Common
+@using Wolverine
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR
 
-@inject ISender Sender
+@inject IMessageBus MessageBus
 @inject Radzen.NotificationService NotificationService
 @inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
 @inject IJSRuntime JS
@@ -224,7 +225,7 @@
     private async Task LoadCustomers()
     {
         var query = new GetAllCustomersQuery();
-        var result = await Sender.Send(query);
+        var result = await MessageBus.InvokeAsync<Result<List<CustomerListDto>>>(query);
 
         if (result.IsSuccess)
             customers = result.Value;
@@ -290,7 +291,7 @@
 
         try
         {
-            var result = await Sender.Send(command);
+            var result = await MessageBus.InvokeAsync<Result<Guid>>(command);
 
             if (result.IsSuccess)
             {

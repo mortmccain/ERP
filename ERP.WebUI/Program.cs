@@ -2,11 +2,12 @@ using ERP.Application;
 using ERP.Infrastructure;
 using ERP.Infrastructure.Identity;
 using ERP.Infrastructure.Persistence;
-using ERP.WebUI.Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Radzen;
 using ERP.WebUI.Hubs;
+using ERP.WebUI.Services;
+using JasperFx.CodeGeneration.Model;
+using Microsoft.AspNetCore.Identity;
+using Radzen;
+using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 // DbContext registration moved to Infrastructure.DependencyInjection for consistency across WebUI/WebAPI
 // (shared scoped instance for UnitOfWork + repositories)
 
-builder.Services.AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>
+builder.Services.AddIdentity < IdentityUser < Guid >, IdentityRole < Guid >>
     (
     options =>
     {
@@ -39,37 +40,52 @@ builder.Services.AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>
     }
     )
 
-.AddEntityFrameworkStores<AppDbContext>()
+.AddEntityFrameworkStores < AppDbContext > ()
 .AddDefaultTokenProviders();                // enables forgot password tokens which i don't know how they help us
 
 // Configure cookie settings
 builder.Services.ConfigureApplicationCookie
     (
     options =>
-{
-    options.Cookie.HttpOnly = true;                             // javascript can not read the cookies (prevents XSS attacks)
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;   // HTTPS only (prevents man in the middle attacks)
-    options.Cookie.SameSite = SameSiteMode.Strict;            // send this cookie IF the request came from MY website (Prevents CSRF)
-    options.ExpireTimeSpan = TimeSpan.FromHours(1);          // Session length
-    options.SlidingExpiration = true;                       // Extends session on activity
-    options.LoginPath = "/Account/Login";                  // why are these in the cookies section?
-    options.LogoutPath = "/Account/Logout";                 
-    options.AccessDeniedPath = "/Account/AccessDenied";
-}
+    {
+        options.Cookie.HttpOnly = true;                             // javascript can not read the cookies (prevents XSS attacks)
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;   // HTTPS only (prevents man in the middle attacks)
+        options.Cookie.SameSite = SameSiteMode.Strict;            // send this cookie IF the request came from MY website (Prevents CSRF)
+        options.ExpireTimeSpan = TimeSpan.FromHours(1);          // Session length
+        options.SlidingExpiration = true;                       // Extends session on activity
+        options.LoginPath = "/Account/Login";                  // why are these in the cookies section?
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+    }
     );
 
 // --- Application & Infrastructure ---
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// --- Wolverine ---
+// Host-level configuration: delegates to Application layer, then adds
+// the EF Core service-location override. EF Core registers DbContextOptions<T>
+// as an opaque lambda factory; Wolverine cannot inline this, so service location
+// is required. This lives in the host because it is infrastructure-specific.
+builder.Host.UseWolverine(options =>
+{
+    ERP.Application.DependencyInjection.ConfigureWolverine(options);
+
+    // Allow service location for EF Core lambda factories (DbContextOptions<T>).
+    // Wolverine 6 defaults to NotAllowed, which breaks EF Core's opaque registrations.
+    // AllowedButWarn keeps the 5.x behavior; use AlwaysAllowed to silence the log warning.
+    options.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+});
+
 // --- Blazor ---
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();  // UI interactions happen on the server via SignalR (real-time connection)
-builder.Services.AddScoped<Radzen.NotificationService>();
+builder.Services.AddScoped < Radzen.NotificationService > ();
 builder.Services.AddRadzenComponents();
 
 // --- Current User Service (Blazor-specific) ---
-builder.Services.AddScoped<ERP.Application.Common.Interfaces.ICurrentUserService, BlazorCurrentUserService>();
+builder.Services.AddScoped < ERP.Application.Common.Interfaces.ICurrentUserService, BlazorCurrentUserService > ();
 
 builder.Services.AddSignalR();
 
@@ -94,10 +110,10 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
-app.MapRazorComponents<ERP.WebUI.Components.App>()
+app.MapRazorComponents < ERP.WebUI.Components.App > ()
     .AddInteractiveServerRenderMode();                  // this adds the signalR stuff
 
-app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub < NotificationHub > ("/notificationHub");
 
 // Seed default roles and admin user for the first time (if not available)
 using (var scope = app.Services.CreateScope())

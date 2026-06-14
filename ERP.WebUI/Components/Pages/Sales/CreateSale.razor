@@ -5,11 +5,12 @@
 @using ERP.Application.Sales.Commands.CreateSale
 @using ERP.Application.Customers.DTOs
 @using ERP.Application.Customers.Queries.GetActiveCustomersForSaleCreation
-@using MediatR
+@using ERP.SharedKernel.Common
+@using Wolverine
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR
 
-@inject ISender Mediator
+@inject IMessageBus MessageBus
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
@@ -196,7 +197,7 @@
     protected override async Task OnInitializedAsync()
     {
         var query = new GetActiveCustomersForSaleCreationQuery();
-        var result = await Mediator.Send(query);
+        var result = await MessageBus.InvokeAsync<Result<List<CustomerForSaleCreationDto>>>(query);
 
         if (result.IsSuccess)
         {
@@ -263,7 +264,7 @@
                 }).ToList()
             };
 
-            var result = await Mediator.Send(command);
+            var result = await MessageBus.InvokeAsync < Result > (command);
 
             if (result.IsSuccess)
             {

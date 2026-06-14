@@ -11,12 +11,13 @@
 @using ERP.Application.Sales.Commands.MarkAsInvoiced
 @using ERP.Application.Sales.DTOs
 @using ERP.Application.Sales.Queries.GetSaleById
-@using MediatR
+@using ERP.SharedKernel.Common
+@using Wolverine
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.SignalR
 
-@inject ISender Mediator
+@inject IMessageBus MessageBus
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject Radzen.NotificationService NotificationService
@@ -515,12 +516,15 @@ else if (sale is not null)
 
         try
         {
-            var result = await Mediator.Send(new GetSaleByIdQuery
-            {
-                SaleId = Id,
-                RequestedByUserId = currentUserId,
-                UserRoles = currentUserRoles
-            });
+            var result = await MessageBus.InvokeAsync<Result<SaleDto>>
+            (
+                new GetSaleByIdQuery
+                {
+                    SaleId = Id,
+                    RequestedByUserId = currentUserId,
+                    UserRoles = currentUserRoles
+                }
+            );
 
             if (result.IsSuccess)
                 sale = result.Value;
@@ -572,12 +576,15 @@ else if (sale is not null)
         isActioning = true;
         try
         {
-            var result = await Mediator.Send(new SubmitSaleCommand
-            {
-                SaleId = sale.Id,
-                SubmittedByUserId = currentUserId,
-                UserRoles = currentUserRoles
-            });
+            var result = await MessageBus.InvokeAsync<Result>
+            (
+                new SubmitSaleCommand
+                {
+                    SaleId = sale.Id,
+                    SubmittedByUserId = currentUserId,
+                    UserRoles = currentUserRoles
+                }
+            );
 
             if (result.IsSuccess)
             {
@@ -589,9 +596,9 @@ else if (sale is not null)
             else Notify(Radzen.NotificationSeverity.Error, "Submit failed", result.Error!);
 
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
-            Notify(Radzen.NotificationSeverity.Error, "Submit failed", ex.Message); 
+            Notify(Radzen.NotificationSeverity.Error, "Submit failed", ex.Message);
         }
 
         finally { isActioning = false; }
@@ -603,14 +610,17 @@ else if (sale is not null)
         isActioning = true;
         try
         {
-            var result = await Mediator.Send(new ApproveSaleCommand
-            {
-                SaleId = sale.Id,
-                ApprovedByUserId = currentUserId,
-                UserRoles = currentUserRoles
-            });
+            var result = await MessageBus.InvokeAsync<Result>
+            (
+                new ApproveSaleCommand
+                {
+                    SaleId = sale.Id,
+                    ApprovedByUserId = currentUserId,
+                    UserRoles = currentUserRoles
+                }
+            );
 
-            if (result.IsSuccess) 
+            if (result.IsSuccess)
             {
                 Notify(Radzen.NotificationSeverity.Success, "Approved", $"{sale.SaleNumber} has been approved.");
                 await BroadcastSaleChange();
@@ -619,9 +629,9 @@ else if (sale is not null)
 
             else Notify(Radzen.NotificationSeverity.Error, "Approval failed", result.Error!);
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
-            Notify(Radzen.NotificationSeverity.Error, "Approval failed", ex.Message); 
+            Notify(Radzen.NotificationSeverity.Error, "Approval failed", ex.Message);
         }
 
         finally { isActioning = false; }
@@ -662,13 +672,16 @@ else if (sale is not null)
         isActioning = true;
         try
         {
-            var result = await Mediator.Send(new CancelSaleCommand
-            {
-                SaleId = sale.Id,
-                CancelledByUserId = currentUserId,
-                UserRoles = currentUserRoles,
-                Reason = cancellationReason.Trim()
-            });
+            var result = await MessageBus.InvokeAsync<Result>
+            (
+                new CancelSaleCommand
+                {
+                    SaleId = sale.Id,
+                    CancelledByUserId = currentUserId,
+                    UserRoles = currentUserRoles,
+                    Reason = cancellationReason.Trim()
+                }
+            );
 
             if (result.IsSuccess)
             {
@@ -698,12 +711,16 @@ else if (sale is not null)
         isActioning = true;
         try
         {
-            var result = await Mediator.Send(new MarkAsShippedCommand
+            var result = await MessageBus.InvokeAsync<Result>
+            (
+                new MarkAsShippedCommand
             {
                 SaleId = sale.Id,
                 MarkedByUserId = currentUserId,
                 UserRoles = currentUserRoles
-            });
+            }
+            );
+
             if (result.IsSuccess)
             {
                 Notify(Radzen.NotificationSeverity.Success, "Shipped", $"{sale.SaleNumber} has been marked as shipped.");
@@ -722,12 +739,15 @@ else if (sale is not null)
         isActioning = true;
         try
         {
-            var result = await Mediator.Send(new MarkAsInvoicedCommand
-            {
-                SaleId = sale.Id,
-                MarkedByUserId = currentUserId,
-                UserRoles = currentUserRoles
-            });
+            var result = await MessageBus.InvokeAsync<Result>
+            (
+                new MarkAsInvoicedCommand
+                {
+                    SaleId = sale.Id,
+                    MarkedByUserId = currentUserId,
+                    UserRoles = currentUserRoles
+                }
+            );
             if (result.IsSuccess)
             {
                 Notify(Radzen.NotificationSeverity.Success, "Invoiced", $"{sale.SaleNumber} has been marked as invoiced.");

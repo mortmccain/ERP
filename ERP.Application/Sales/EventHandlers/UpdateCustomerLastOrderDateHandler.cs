@@ -9,33 +9,23 @@ namespace ERP.Application.Sales.EventHandlers;
 /// This now correctly runs against the shared DbContext from UnitOfWork 
 /// (same transaction as the Sale creation).
 /// </summary>
-public sealed class UpdateCustomerLastOrderDateHandler
-    : INotificationHandler<SaleCreatedDomainEvent>
+public static class UpdateCustomerLastOrderDateHandler
 {
-    private readonly ICustomerRepository _customerRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<UpdateCustomerLastOrderDateHandler> _logger;
-
-    public UpdateCustomerLastOrderDateHandler(
+    public static async Task Handle
+        (
+        SaleCreatedDomainEvent domainEvent,
         ICustomerRepository customerRepository,
         IUnitOfWork unitOfWork,
-        ILogger<UpdateCustomerLastOrderDateHandler> logger)
+        ILogger<SaleCreatedDomainEvent> logger,
+        CancellationToken cancellationToken
+        )
     {
-        _customerRepository = customerRepository;
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task Handle(
-        SaleCreatedDomainEvent domainEvent,
-        CancellationToken cancellationToken)
-    {
-        var customer = await _customerRepository.GetByIdAsync(
+        var customer = await customerRepository.GetByIdAsync(
             domainEvent.CustomerId, cancellationToken);
 
         if (customer is null)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Customer {CustomerId} not found when updating LastOrderDate for Sale {SaleId}",
                 domainEvent.CustomerId, domainEvent.SaleId);
             return;
@@ -43,7 +33,7 @@ public sealed class UpdateCustomerLastOrderDateHandler
 
         customer.RecordOrder(domainEvent.CreatedAtUtc);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Updated LastOrderDate for Customer {CustomerId} to {OrderDate}",
             customer.Id, domainEvent.CreatedAtUtc);
     }

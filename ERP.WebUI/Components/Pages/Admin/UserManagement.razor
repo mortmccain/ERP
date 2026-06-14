@@ -9,13 +9,14 @@
 @using ERP.Application.Users.Queries.GetAllUsers
 @using ERP.Application.Users.Commands.CreateUser
 @using ERP.Application.Users.Commands.DeleteUser
-@using MediatR
+@using ERP.SharedKernel.Common
+@using Wolverine
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.SignalR
 @using System.Security.Claims
 
-@inject ISender Mediator
+@inject IMessageBus MessageBus
 @inject Radzen.NotificationService NotificationService
 @inject Radzen.DialogService DialogService
 @inject Microsoft.AspNetCore.SignalR.IHubContext<ERP.WebUI.Hubs.NotificationHub> HubContext
@@ -164,7 +165,7 @@
             UserRoles = currentUserRoles
         };
 
-        var result = await Mediator.Send(query);
+        var result = await MessageBus.InvokeAsync<Result<List<UserDto>>>(query);
 
         if (result.IsSuccess)
             users = result.Value;
@@ -195,7 +196,7 @@
             UserRoles = currentUserRoles
         };
 
-        var result = await Mediator.Send(command);
+        var result = await MessageBus.InvokeAsync<Result>(command);
 
         if (result.IsSuccess)
         {
@@ -254,7 +255,7 @@
             UserRoles = currentUserRoles
         };
 
-        var result = await Mediator.Send(command);
+        var result = await MessageBus.InvokeAsync<Result>(command);
 
         if (result.IsSuccess)
         {

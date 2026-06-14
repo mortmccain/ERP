@@ -8,12 +8,14 @@ namespace ERP.Application.Customers.Commands.CreateCustomer;
 
 public static class CreateCustomerCommandHandler
 {
-    public static async Task<Result<Guid>> Handle(
+    public static async Task<Result<Guid>> Handle
+        (
         CreateCustomerCommand command,
         ICustomerCodeGenerator customerCodeGenerator,
         IUnitOfWork unitOfWork,
         ILogger<CreateCustomerCommand> logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+        )
     {
         // STEP 1: Generate a CustomerCode
         var customerCode = await customerCodeGenerator.NextAsync("CUST", cancellationToken);

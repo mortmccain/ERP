@@ -3,6 +3,6 @@ using ERP.SharedKernel.Common;
 
 namespace ERP.Application.Customers.Queries.GetAllCustomers;
 
-public sealed class GetAllCustomersQuery : IRequest<Result<List<CustomerListDto>>>
+public sealed class GetAllCustomersQuery
 {
 }
