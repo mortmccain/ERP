@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="ERP.Application/ERP.Application.csproj" />
   <Project Path="ERP.Domain/ERP.Domain.csproj" />
   <Project Path="ERP.Infrastructure/ERP.Infrastructure.csproj" />

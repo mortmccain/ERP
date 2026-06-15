@@ -43,8 +43,7 @@ public static class DependencyInjection
     {
         // Register FluentValidation validators into DI container
         // (needed by Wolverine.FluentValidation middleware)
-        services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-
+        services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), ServiceLifetime.Transient);
         return services;
     }
 }

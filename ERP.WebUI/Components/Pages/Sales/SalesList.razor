@@ -300,7 +300,7 @@
                 Reason = cancellationReason.Trim()
             };
 
-            var result = await MessageBus.InvokeAsync<Result<Guid>>(command);
+            var result = await MessageBus.InvokeAsync<Result>(command);
 
             if (result.IsSuccess)
             {

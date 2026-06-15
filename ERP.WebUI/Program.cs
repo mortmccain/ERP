@@ -9,6 +9,8 @@ using JasperFx.CodeGeneration.Model;
 using Microsoft.AspNetCore.Identity;
 using Radzen;
 using Wolverine;
+using Wolverine.EntityFrameworkCore;
+using Wolverine.SqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,17 +75,24 @@ builder.Host.UseWolverine(options =>
 {
     ERP.Application.DependencyInjection.ConfigureWolverine(options);
 
-    // Development: auto-generate at runtime (fast iteration)
-    // Production: use pre-generated code (fast startup)
-    if (builder.Environment.IsDevelopment())
-    {
-        options.CodeGeneration.TypeLoadMode = TypeLoadMode.Dynamic;
-    }
-    else
-    {
-        options.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
-    }
+    // === Wolverine Outbox (Transactional Outbox Pattern) ===
+    // Ensures domain events are stored in the database atomically with business data.
+    // If SaveChanges fails, events are never published. If the app crashes after
+    // SaveChanges succeeds, a background worker retries sending from the outbox.
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
 
+    // Persist messages to SQL Server (creates wolverine_outbox, wolverine_inbox tables)
+    options.PersistMessagesWithSqlServer(connectionString);
+
+    // Enlist EF Core SaveChanges in Wolverine's outbox transaction.
+    // This makes _messageBus.PublishAsync store messages in the DB outbox
+    // instead of sending immediately, and flushes them after SaveChanges commits.
+    options.UseEntityFrameworkCoreTransactions();
+
+    // Dynamic compilation for development (handler code generation)
+    options.CodeGeneration.TypeLoadMode = TypeLoadMode.Dynamic;
+
+    // Allow service location for EF Core lambda factories (DbContextOptions<T>)
     options.ServiceLocationPolicy = ServiceLocationPolicy.AlwaysAllowed;
 });
 
