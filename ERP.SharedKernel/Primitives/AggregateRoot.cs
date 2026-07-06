@@ -24,4 +24,18 @@ public abstract class AggregateRoot : BaseEntity
     {
         _domainEvents.Clear();
     }
+
+    /// <summary>
+    /// Removes the specified domain events from the aggregate's domain event list.
+    /// This allows publishing code to remove only the events that were published
+    /// while leaving any new events added by handlers intact.
+    /// </summary>
+    /// <param name="events">Events to remove.</param>
+    public void RemoveDomainEvents(IEnumerable<BaseDomainEvent> events)
+    {
+        foreach (var e in events)
+        {
+            _domainEvents.Remove(e);
+        }
+    }
 }

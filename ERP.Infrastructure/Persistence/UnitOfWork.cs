@@ -71,28 +71,32 @@ public sealed class UnitOfWork : IUnitOfWork
             .ToList();  // if this wasn't here, the aggregateRoots variable wouldn't get materialized, so domain events would be
                         // empty since the LINQ query (lazy) would execute after events are cleared.
 
-        // Collect all domain events
-        var domainEvents = aggregateRoots
-            .SelectMany(root => root.DomainEvents)
-            .ToList();
+        // Snapshot the domain events for each aggregate root. This ensures we
+        // publish exactly the events that were raised by the aggregates up to
+        // this point while leaving any new events added by handlers untouched.
+        var snapshots = aggregateRoots.ToDictionary(
+            root => root,
+            root => root.DomainEvents.ToList()
+        );
 
-        // Clear events immediately so they aren't re-dispatched
-        foreach (var root in aggregateRoots)
-        {
-            /*
-             If a handler throws an exception,
-             we don't want the events to remain on the Aggregate.
-             On the next SaveChanges, they'd be re-published
-             */
-            root.ClearDomainEvents();
-        }
+        // Flatten all snapshots into a single list for publishing (preserves ordering per root)
+        var domainEvents = snapshots.SelectMany(kv => kv.Value).ToList();
 
-        // Publish each event via MediatR
-        // Handlers run in the same process and can add more changes
-        // to the DbContext before SaveChanges commits everything.
+        // Publish each event. If publishing fails, we do not remove the events
+        // from the aggregates so they can be retried on the next attempt.
         foreach (var domainEvent in domainEvents)
         {
             await _messageBus.PublishAsync(domainEvent);
+        }
+
+        // Remove only the events we published from each aggregate. This avoids
+        // clearing any new events that may have been added by handlers during
+        // publishing.
+        foreach (var kv in snapshots)
+        {
+            var root = kv.Key;
+            var publishedEventsForRoot = kv.Value;
+            root.RemoveDomainEvents(publishedEventsForRoot);
         }
     }
 

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ERP.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260524071222_InitialCreate")]
+    [Migration("20260609170901_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -102,11 +102,17 @@ namespace ERP.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("InvoicedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("ShippedAtUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal?>("TaxRate")
                         .HasColumnType("decimal(5,2)");
@@ -458,8 +464,8 @@ namespace ERP.Infrastructure.Migrations
 
                             b1.Property<string>("Value")
                                 .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("nvarchar(50)")
+                                .HasMaxLength(14)
+                                .HasColumnType("nvarchar(14)")
                                 .HasColumnName("CustomerCode");
 
                             b1.HasKey("CustomerId");

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -54,7 +55,7 @@ namespace ERP.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CustomerCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    CustomerCode = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     Phone = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
@@ -109,9 +110,11 @@ namespace ERP.Infrastructure.Migrations
                     DiscountReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     TaxRate = table.Column<decimal>(type: "decimal(5,2)", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SubmittedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ApprovedByUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ShippedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    InvoicedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancelledAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CancellationReason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
                 },

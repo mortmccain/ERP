@@ -8,24 +8,28 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        // Build configuration from WebUI project (where appsettings.json lives)
+        // Absolute path based on the Infrastructure assembly location
+        var basePath = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "ERP.WebUI"));
+
         var configuration = new ConfigurationBuilder()
-            .AddJsonFile(Path.Combine(Directory.GetCurrentDirectory(), "..", "ERP.WebUI", "appsettings.json"),
-                optional: false, reloadOnChange: true)
-            .AddJsonFile(Path.Combine(Directory.GetCurrentDirectory(), "..", "ERP.WebUI", "appsettings.Development.json"),
-                optional: true)
+            .SetBasePath(basePath)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            throw new InvalidOperationException("Connection string 'DefaultConnection' not found in appsettings.json");
+            throw new InvalidOperationException(
+                "DefaultConnection missing in WebUI configuration.");
         }
 
-        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlServer(connectionString);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
 
-        return new AppDbContext(optionsBuilder.Options);
+        return new AppDbContext(options);
     }
 }
